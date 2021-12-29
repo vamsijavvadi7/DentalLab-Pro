@@ -96,7 +96,7 @@ func Fetch(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	rows, err := db.Query("call getstudents()")
+	rows, err := db.Query("call getpersons()")
 	if err != nil {
 
 		panic(err.Error())
