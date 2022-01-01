@@ -69,18 +69,20 @@ func getcompdetails(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	type Result struct {
-		Competency string `json:"competency"`
+		Competency []string `json:"competency"`
 	}
 
-	res := make([]*Result, 0)
+	res := Result {Competency:[]string{}}
 	for rows.Next() {
-		user := new(Result)
-		err := rows.Scan(&user.Competency)
+		var str string
+		err := rows.Scan(&str)
 
 		if err != nil {
 			panic(err)
 		}
-		res = append(res, user)
+		res.Competency=append(res.Competency, str)
+		 res=Result{Competency:res.Competency}
+		 
 	}
 	defer rows.Close()
 
