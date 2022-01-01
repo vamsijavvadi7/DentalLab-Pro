@@ -13,19 +13,25 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 )
-	type User struct {
-		Mail string // <-- CHANGED THIS LINE
-		Password string
-		Id   string // <-- CHANGED THIS LINE
-		Role string
-	}
+
+type User struct {
+	Mail     string // <-- CHANGED THIS LINE
+	Password string
+	Id       string // <-- CHANGED THIS LINE
+	Role     string
+}
+
 func main() {
 
 	r := mux.NewRouter()
 	godotenv.Load()
 	port := os.Getenv("PORT")
 	r.HandleFunc("/login/email/{mail}", Fetch).Methods("GET")
-  r.HandleFunc("/login/{email}/{password}",loginCheck).Methods("GET")
+	r.HandleFunc("/login/{email}/{password}", loginCheck).Methods("GET")
+	r.HandleFunc("/fdashboard/details/{email}", getfacultydetails).Methods("GET")
+
+	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}", getcompdetails).Methods("GET")
+
 	// if there is an error opening the connection, handle it
 
 	// defer the close till after the main function has finished
@@ -45,11 +51,83 @@ func main() {
 	//   defer insert.Close()
 }
 
-func loginCheck(w http.ResponseWriter, r *http.Request){
-w.Header().Set("Content-Type", "application/json")
+func getcompdetails(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Gets params
-  
-db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	rows, err := db.Query("call getcompetencies(?)", params["speciality"])
+	if err != nil {
+
+		panic(err.Error())
+
+	}
+	defer db.Close()
+
+	type Result struct {
+		Competency string `json:"competency"`
+	}
+
+	res := make([]*Result, 0)
+	for rows.Next() {
+		user := new(Result)
+		err := rows.Scan(&user.Competency)
+
+		if err != nil {
+			panic(err)
+		}
+		res = append(res, user)
+	}
+	defer rows.Close()
+
+	json.NewEncoder(w).Encode(res)
+
+}
+func getfacultydetails(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	rows, err := db.Query("select concat(p.first_name,p.last_name) as name,f.speciality from person p,faculty f where p.person_id=f.person_id and p.email=?;", params["email"])
+	if err != nil {
+
+		panic(err.Error())
+
+	}
+	defer db.Close()
+	type Result struct {
+		Name       string `json:"name"`
+		Speciality string `json:"speciality"`
+	}
+
+	res := make([]*Result, 0)
+	for rows.Next() {
+		user := new(Result)
+		err := rows.Scan(&user.Name, &user.Speciality)
+
+		if err != nil {
+			panic(err)
+		}
+		res = append(res, user)
+	}
+	defer rows.Close()
+
+	json.NewEncoder(w).Encode(res)
+
+}
+func loginCheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -71,15 +149,15 @@ db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleard
 		users = append(users, user)
 	}
 	defer rows.Close()
-	type Result struct{
+	type Result struct {
 		Status string `json:"status"`
-		Role string `json:"role"`
+		Role   string `json:"role"`
 	}
-	res:=Result{Status:"False",Role:""}
+	res := Result{Status: "False", Role: ""}
 	for _, item := range users {
-		if item.Mail== params["email"]  && item.Password==params["password"]{
-			res.Role=item.Role
-			res.Status="True"
+		if item.Mail == params["email"] && item.Password == params["password"] {
+			res.Role = item.Role
+			res.Status = "True"
 			json.NewEncoder(w).Encode(res)
 			return
 		}
@@ -96,7 +174,7 @@ func Fetch(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	rows, err := db.Query("call getpersons()")
+	rows, err := db.Query("call getstudents()")
 	if err != nil {
 
 		panic(err.Error())
