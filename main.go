@@ -44,9 +44,9 @@ func main() {
 	r.HandleFunc("/login/{email}/{password}", loginCheck).Methods("GET")
 	r.HandleFunc("/fdashboard/details/{email}", getfacultydetails).Methods("GET")
 
-	r.HandleFunc("/fdashboard/competencydetails/{speciality}", getcompdetails).Methods("GET")
-	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}", getcompd).Methods("GET")
-
+	r.HandleFunc("/fdashboard/competencydetails/{speciality}", getcompnames).Methods("GET")
+	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}", getcompetencyalongwithstudents).Methods("GET")
+	r.HandleFunc("/profile/email/{email}", getprofile).Methods("GET")
 	// if there is an error opening the connection, handle it
 
 	// defer the close till after the main function has finished
@@ -65,8 +65,7 @@ func main() {
 
 	//   defer insert.Close()
 }
-
-func getcompd(w http.ResponseWriter, r *http.Request) {
+func getprofile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Gets params
 
@@ -75,32 +74,74 @@ func getcompd(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	rows, err := db.Query("select Competency_Name,competency_id from competency where Speciality_id in ( select Speciality_id from speciality where Speciality_Name=?);", params["speciality"])
+	rows, err := db.Query("call getprofile(?)", params["email"])
 	if err != nil {
 
 		panic(err.Error())
 
 	}
 	defer db.Close()
-	speciality_for_faculty = params["speciality"]
-	//var competencyids []int=[]int{}
 
-	type Competency struct {
-		Name string `json:"name"` // <-- CHANGED THIS LINE
-		Cid  string `json:"regno"`
+	type Persondetails struct {
+		Name  string `json:"name"`
+		Role  string `json:"role"`
+		Phone string `json:"phone"`
+		Email string `json:"email"`
+		Batch string `json:"batch"`
 	}
-	comp := make([]*Competency, 0)
+
+	pd := make([]*Persondetails, 0)
 	for rows.Next() {
-		onec := new(Competency)
-		err := rows.Scan(&onec.Name, &onec.Cid)
+		person := new(Persondetails)
+		err := rows.Scan(&person.Name, &person.Phone, &person.Email, &person.Role)
 
 		if err != nil {
 			panic(err)
 		}
-		comp = append(comp, onec)
 
+		if person.Role == "student" {
+
+			row, err := db.Query("call getbatch(?)", params["email"])
+			if err != nil {
+
+				panic(err.Error())
+
+			}
+
+			for row.Next() {
+				
+				err := row.Scan(&person.Batch)
+				if err != nil {
+					panic(err)
+				}
+
+			}
+			row.Close()
+
+		}
+		pd = append(pd, person)
 	}
 	defer rows.Close()
+
+	json.NewEncoder(w).Encode(pd)
+
+}
+
+func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	
+	defer db.Close()
+	speciality_for_faculty = params["speciality"]
+	//var competencyids []int=[]int{}
+
+	
 	type Students struct {
 		Name string `json:"name"` // <-- CHANGED THIS LINE
 		Adno string `json:"regno"`
@@ -126,25 +167,19 @@ func getcompd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	studentD := make([]*StudentDetails, 0)
-	row, err := db.Query("call getcompetencies(?)", params["speciality"])
-	if err != nil {
+	
+	// compnamelist := []string{}
+	// for row.Next() {
+	// 	var str string
+	// 	err := row.Scan(&str)
 
-		panic(err.Error())
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	compnamelist = append(compnamelist, str)
+	// }
 
-	}
-
-	compnamelist := []string{}
-	for row.Next() {
-		var str string
-		err := row.Scan(&str)
-
-		if err != nil {
-			panic(err)
-		}
-		compnamelist = append(compnamelist, str)
-	}
-
-	defer row.Close()
+	
 
 	StudentF, er := db.Query("CALL getevalpercentage(?,?)", params["speciality"], "faculty")
 	if er != nil {
@@ -212,64 +247,7 @@ func getcompd(w http.ResponseWriter, r *http.Request) {
 
 		}
 	}
-	// for _,c_id := range competencyids{
-	// 	// type Competency struct {
-	// 	// 	Competency []string `json:compnam`
 
-	// 	// }
-	// 	for _,student:= range st{
-	// 		datab, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
-	// 	if err != nil {
-	// 		panic(err.Error())
-	// 	}
-
-	// StudentF, er := datab.Query("CALL getallevalpercentage(?,?,?)",student.Adno,"faculty",c_id);
-	// if er != nil {
-
-	// 		panic(err.Error())
-
-	// 	}
-
-	// type Score struct {
-
-	// 	Self float64 `json:"self"`// <-- CHANGED THIS LINE
-	// 	Faculty float64 `json:"faculty"`
-	// 	}
-
-	//          sc:=new(Score)
-	// for StudentF.Next() {
-
-	// 		err := StudentF.Scan(&sc.Faculty)
-
-	// 		if err != nil {
-	// 			panic(err)
-	// 		}
-
-	// }
-
-	//  StudentF.Close()
-
-	// StudentS, er := db.Query("CALL getallevalpercentage(?,?,?)",student.Adno,"self",c_id);
-
-	// if er != nil {
-
-	// 		panic(err.Error())
-
-	// 	}
-
-	// for StudentS.Next() {
-
-	// 		err := StudentS.Scan(&sc.Self)
-
-	// 		if err != nil {
-	// 			panic(err)
-	// 		}
-	// 	}
-	//  StudentS.Close()
-	// studentD=append(studentD,&StudentDetails{Name:student.Name,Adno: student.Adno,Self:sc.Self,Faculty: sc.Faculty })
-	//  datab.Close()
-	// 	}
-	// }
 	Compre := make([]*CompetencyReturn, 0)
 	for _, stud := range studentD {
 		stude := StudentDetails{Name: stud.Name, Adno: stud.Adno, Self: stud.Self, Faculty: stud.Faculty, Competencynum: stud.Competencynum}
@@ -341,12 +319,11 @@ func (c CompetencyReturn) MarshalJSON() ([]byte, error) {
 
 	}
 
-
 	return json.Marshal(b)
 
 }
 
-func getcompdetails(w http.ResponseWriter, r *http.Request) {
+func getcompnames(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Gets params
 
