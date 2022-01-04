@@ -44,8 +44,8 @@ func main() {
 	r.HandleFunc("/login/{email}/{password}", loginCheck).Methods("GET")
 	r.HandleFunc("/fdashboard/details/{email}", getfacultydetails).Methods("GET")
 
-	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}", getcompdetails).Methods("GET")
-	r.HandleFunc("/fdashboard/competencydetails/{speciality}", getcompd).Methods("GET")
+	r.HandleFunc("/fdashboard/competencydetails/{speciality}", getcompdetails).Methods("GET")
+	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}", getcompd).Methods("GET")
 
 	// if there is an error opening the connection, handle it
 
