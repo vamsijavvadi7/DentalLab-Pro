@@ -109,7 +109,7 @@ func getprofile(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for row.Next() {
-				
+
 				err := row.Scan(&person.Batch)
 				if err != nil {
 					panic(err)
@@ -136,12 +136,10 @@ func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	
 	defer db.Close()
 	speciality_for_faculty = params["speciality"]
 	//var competencyids []int=[]int{}
 
-	
 	type Students struct {
 		Name string `json:"name"` // <-- CHANGED THIS LINE
 		Adno string `json:"regno"`
@@ -167,7 +165,7 @@ func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	studentD := make([]*StudentDetails, 0)
-	
+
 	// compnamelist := []string{}
 	// for row.Next() {
 	// 	var str string
@@ -178,8 +176,6 @@ func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
 	// 	}
 	// 	compnamelist = append(compnamelist, str)
 	// }
-
-	
 
 	StudentF, er := db.Query("CALL getevalpercentage(?,?)", params["speciality"], "faculty")
 	if er != nil {
@@ -406,7 +402,7 @@ func loginCheck(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	rows, err := db.Query("call getstudents()")
+	rows, err := db.Query("call getpersons()")
 	if err != nil {
 
 		panic(err.Error())
@@ -448,7 +444,7 @@ func Fetch(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	rows, err := db.Query("call getstudents()")
+	rows, err := db.Query("call getpersons()")
 	if err != nil {
 
 		panic(err.Error())
