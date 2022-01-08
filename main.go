@@ -6,10 +6,12 @@ import (
 	"log"
 	"net/http"
 	"os"
-
+"sort"
+"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	
 )
 
 type User struct {
@@ -35,6 +37,8 @@ type CompetencyReturn struct {
 
 var speciality_for_faculty string = ""
 
+
+
 func main() {
 
 	r := mux.NewRouter()
@@ -47,6 +51,7 @@ func main() {
 	r.HandleFunc("/fdashboard/competencydetails/{speciality}", getcompnames).Methods("GET")
 	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}", getcompetencyalongwithstudents).Methods("GET")
 	r.HandleFunc("/profile/email/{email}", getprofile).Methods("GET")
+	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", getcompetencyevaluations).Methods("GET")
 	// if there is an error opening the connection, handle it
 
 	// defer the close till after the main function has finished
@@ -64,6 +69,114 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
 	//   defer insert.Close()
+}
+
+func getcompetencyevaluations(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+	
+	//var competencyids []int=[]int{}
+
+	type Evaluation struct {
+		CompEvaId int `json:"compentencyevaluationid"` 
+		Opnum string `json:"patientop"` // <-- CHANGED THIS LINE
+		Date string `json:"date"`
+		Time string `json:"time"`
+		Self float64 `json:"self"`
+		Faculty float64 `json:"faculty"`
+		Timest string `json:"-"`
+
+	}
+
+	evalrow, er := db.Query("call getallevalofacompetency(?,?)",params["competencyid"],params["studentid"])
+	if er != nil {
+
+		panic(err.Error())
+
+	}
+	defer evalrow.Close()
+	et := []Evaluation{}
+	
+	for evalrow.Next() {
+		user := new(Evaluation)
+		err := evalrow.Scan(&user.CompEvaId,&user.Opnum, &user.Date,&user.Time)
+
+		if err != nil {
+			panic(err)
+		
+		}
+		datab, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	
+
+StudentF, er := datab.Query("CALL getpercentageforeacheval(?,?,?)", "faculty",params["competencyid"],user.CompEvaId)
+	if er != nil {
+
+		panic(err.Error())
+
+	}
+
+	
+	
+	for StudentF.Next() {
+		
+		err := StudentF.Scan(&user.Faculty)
+
+		if err != nil {
+			panic(err)
+		}
+		
+	}
+
+	StudentF.Close()
+
+	StudentS, er := datab.Query("CALL getpercentageforeacheval(?,?,?)", "self",params["competencyid"],user.CompEvaId)
+
+	if er != nil {
+
+		panic(err.Error())
+
+	}
+
+	for StudentS.Next() {
+		
+		err := StudentS.Scan(&user.Self)
+
+		if err != nil {
+			panic(err)
+		}
+		
+		}
+	
+	StudentS.Close()
+	 datab.Close()
+	 user.Timest=user.Date+" "+user.Time
+et = append(et,*user)
+
+	}
+
+
+
+
+	
+	sort.Slice(et, func(i, j int) bool {
+    return et[i].Timest < et[j].Timest
+})
+fmt.Println(et)
+
+
+	json.NewEncoder(w).Encode(et)
+
 }
 func getprofile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
