@@ -172,7 +172,6 @@ et = append(et,*user)
 	sort.Slice(et, func(i, j int) bool {
     return et[i].Timest < et[j].Timest
 })
-fmt.Println(et)
 
 
 	json.NewEncoder(w).Encode(et)
