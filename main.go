@@ -30,7 +30,7 @@ func main() {
 	r.HandleFunc("/fdashboard/details/{email}", getfacultydetails).Methods("GET")
 
 	r.HandleFunc("/fdashboard/competencydetails/{speciality}", getcompnames).Methods("GET")
-	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}", getcompetencyalongwithstudents).Methods("GET")
+	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}/competencyid/{competencyid}", getcompetencyalongwithstudents).Methods("GET")
 	r.HandleFunc("/profile/email/{email}", getprofile).Methods("GET")
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", getcompetencyevaluations).Methods("GET")
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum/{opnum}/femail/{facultyemail}", createarowincompetencyevaluationsandsendform).Methods("GET")
@@ -38,7 +38,7 @@ func main() {
 
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", postform).Methods("POST")
 	r.HandleFunc("/facultytodo/meet/{email}", facultytodomeet).Methods("GET")
-		r.HandleFunc("/facultytodo/reference/{email}", facultytodoreference).Methods("GET")
+	r.HandleFunc("/facultytodo/reference/{email}", facultytodoreference).Methods("GET")
 	//r.HandleFunc("/studentdashboard/studentmail/{email}",studentdashboardspecialities).Methods("GET")
 	r.HandleFunc("/studentdashboarddetails/studentmail/{email}", studentdashboarddetails).Methods("GET")
 	log.Fatal(http.ListenAndServe(":"+port, r))
@@ -49,15 +49,15 @@ func facultytodoreference(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	 
+
 	type Studentstomeet struct {
-	    Name string `json:"studentname"`
-		Competency_Name string `json:"competencyname"`
-		Student_id string `json:"studentid"`
-		CriteriaQS string `json:"criteriaqs"`
-		CompetencyEvaluation_id int `json:"CompetencyEvaluation_id"`
+		Name                    string `json:"studentname"`
+		Competency_Name         string `json:"competencyname"`
+		Student_id              string `json:"studentid"`
+		CriteriaQS              string `json:"criteriaqs"`
+		CompetencyEvaluation_id int    `json:"CompetencyEvaluation_id"`
 	}
-	sts:=make([]*Studentstomeet,0)
+	sts := make([]*Studentstomeet, 0)
 
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
@@ -74,33 +74,32 @@ func facultytodoreference(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for de.Next() {
-             st:=new(Studentstomeet)
-		err := de.Scan(&st.Competency_Name,&st.Student_id,&st.CriteriaQS,&st.CompetencyEvaluation_id,&st.Name)
+		st := new(Studentstomeet)
+		err := de.Scan(&st.Competency_Name, &st.Student_id, &st.CriteriaQS, &st.CompetencyEvaluation_id, &st.Name)
 
 		if err != nil {
 			panic(err)
 
 		}
-		sts=append(sts, st)
+		sts = append(sts, st)
 	}
 	de.Close()
 
-json.NewEncoder(w).Encode(sts)
-
+	json.NewEncoder(w).Encode(sts)
 
 }
 func facultytodomeet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	 
+
 	type Studentstomeet struct {
-	    Name string `json:"studentname"`
-		Competency_Name string `json:"competencyname"`
-		Student_id string `json:"studentid"`
-		CompetencyEvaluation_id int `json:"CompetencyEvaluation_id"`
+		Name                    string `json:"studentname"`
+		Competency_Name         string `json:"competencyname"`
+		Student_id              string `json:"studentid"`
+		CompetencyEvaluation_id int    `json:"CompetencyEvaluation_id"`
 	}
-	sts:=make([]*Studentstomeet,0)
+	sts := make([]*Studentstomeet, 0)
 
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
@@ -117,19 +116,18 @@ func facultytodomeet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for de.Next() {
-             st:=new(Studentstomeet)
-		err := de.Scan(&st.Competency_Name,&st.Student_id,&st.CompetencyEvaluation_id,&st.Name)
+		st := new(Studentstomeet)
+		err := de.Scan(&st.Competency_Name, &st.Student_id, &st.CompetencyEvaluation_id, &st.Name)
 
 		if err != nil {
 			panic(err)
 
 		}
-		sts=append(sts, st)
+		sts = append(sts, st)
 	}
 	de.Close()
 
-json.NewEncoder(w).Encode(sts)
-
+	json.NewEncoder(w).Encode(sts)
 
 }
 
@@ -170,7 +168,7 @@ func postform(w http.ResponseWriter, r *http.Request) {
 	var feedback []Form
 	erro := json.NewDecoder(r.Body).Decode(&feedback)
 	if erro != nil {
-		panic(err.Error())
+		panic(erro.Error())
 	}
 
 	for _, item := range feedback {
@@ -630,7 +628,7 @@ func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
 	// 	compnamelist = append(compnamelist, str)
 	// }
 
-	StudentF, er := db.Query("CALL getevalpercentage(?,?)", params["speciality"], "faculty")
+	StudentF, er := db.Query("CALL getevalpercentage(?,?,?)", params["speciality"], "faculty",params["competencyid"])
 	if er != nil {
 
 		panic(er.Error())
@@ -657,7 +655,7 @@ func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
 
 	StudentF.Close()
 
-	StudentS, er := db.Query("CALL getevalpercentage(?,?)", params["speciality"], "self")
+	StudentS, er := db.Query("CALL getevalpercentage(?,?,?)", params["speciality"], "self",params["competencyid"])
 
 	if er != nil {
 
@@ -806,7 +804,6 @@ func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
 // 	return json.Marshal(b)
 
 // }
-
 func getcompnames(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Gets params
@@ -825,26 +822,65 @@ func getcompnames(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	type Result struct {
-		Competency []string `json:"competency"`
+		CompetencyName string `json:"competencyname"`
+		CompetencyId   int    `json:"competencyid"`
 	}
 
-	res := Result{Competency: []string{}}
+	res := make([]*Result, 0)
 	for rows.Next() {
-		var str string
-		err := rows.Scan(&str)
+		rt := new(Result)
+		err := rows.Scan(&rt.CompetencyName, &rt.CompetencyId)
 
 		if err != nil {
 			panic(err)
 		}
-		res.Competency = append(res.Competency, str)
-		res = Result{Competency: res.Competency}
-
+		res = append(res, rt)
 	}
 	defer rows.Close()
 
 	json.NewEncoder(w).Encode(res)
 
 }
+
+// func getcompnames(w http.ResponseWriter, r *http.Request) {
+// 	w.Header().Set("Content-Type", "application/json")
+// 	params := mux.Vars(r) // Gets params
+
+// 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+// 	if err != nil {
+// 		panic(err.Error())
+// 	}
+
+// 	rows, err := db.Query("call getcompetencies(?)", params["speciality"])
+// 	if err != nil {
+
+// 		panic(err.Error())
+
+// 	}
+// 	defer db.Close()
+
+// 	type Result struct {
+// 		Competency []string `json:"competency"`
+
+// 	}
+
+// 	res := Result{Competency: []string{}}
+// 	for rows.Next() {
+// 		var str string
+// 		err := rows.Scan(&str)
+
+// 		if err != nil {
+// 			panic(err)
+// 		}
+// 		res.Competency = append(res.Competency, str)
+// 		res = Result{Competency: res.Competency}
+
+// 	}
+// 	defer rows.Close()
+
+// 	json.NewEncoder(w).Encode(res)
+
+// }
 func getfacultydetails(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Gets params
