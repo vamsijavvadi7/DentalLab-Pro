@@ -3,11 +3,13 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	//"fmt"
+
 	"log"
 	"net/http"
 	"os"
 	"sort"
-	"fmt"
+	"strconv"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -67,7 +69,7 @@ func facultytodoreference(w http.ResponseWriter, r *http.Request) {
 
 	defer db.Close()
 
-	de, er := db.Query("CALL todoreferenceforfaculty(?);", params["email"]);
+	de, er := db.Query("CALL todoreferenceforfaculty(\""+params["email"]+"\");");
 	if er != nil {
 
 		panic(er.Error())
@@ -109,7 +111,7 @@ func facultytodomeet(w http.ResponseWriter, r *http.Request) {
 
 	defer db.Close()
 
-	de, er := db.Query("CALL todomeetforfaculty(?);", params["email"])
+	de, er := db.Query("CALL todomeetforfaculty(\""+params["email"]+"\");")
 	if er != nil {
 
 		panic(er.Error())
@@ -149,7 +151,7 @@ func postform(w http.ResponseWriter, r *http.Request) {
 
 	defer db.Close()
 
-	de, er := db.Query("select competencyEvaluation_id from competency_evaluation where Student_Student_id=? and Competency_id=? order by visit_stamp desc limit 1;", params["studentid"], params["competencyid"])
+	de, er := db.Query("select competencyEvaluation_id from competency_evaluation where Student_Student_id=\""+params["studentid"]+"\" and Competency_id=\""+params["competencyid"]+"\"order by visit_stamp desc limit 1; ");
 	if er != nil {
 
 		panic(er.Error())
@@ -174,7 +176,8 @@ func postform(w http.ResponseWriter, r *http.Request) {
 
 	for _, item := range feedback {
 
-		fd, er := db.Query("call postform(?,?,?,?)", item.Criteriaid, comeval_id, item.Score, item.Refermatter)
+		     a:="call postform(\""+ strconv.Itoa(item.Criteriaid) + "\",\"" + strconv.Itoa(comeval_id)+"\",\""+strconv.Itoa(item.Score)+"\",\""+item.Refermatter+"\");";
+		fd, er := db.Query(a)
 		if er != nil {
 
 			panic(er.Error())
@@ -198,7 +201,7 @@ func studentdashboarddetails(w http.ResponseWriter, r *http.Request) {
 
 	//var competencyids []int=[]int{}
 
-	fd, er := db.Query("select concat(p.first_name,p.last_name) from person p,student s where p.email=? and s.person_id=p.person_id;", params["email"])
+	fd, er := db.Query("select concat(p.first_name,p.last_name) from person p,student s where p.email=\""+params["email"]+"\"and s.person_id=p.person_id;")
 	if er != nil {
 
 		panic(er.Error())
@@ -218,7 +221,7 @@ func studentdashboarddetails(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fd.Close()
-	ba, er := db.Query("CALL batch(?);", params["email"])
+	ba, er := db.Query("CALL batch(\""+params["email"]+"\");")
 	if er != nil {
 
 		panic(er.Error())
@@ -261,7 +264,7 @@ func evaluationformdetails(w http.ResponseWriter, r *http.Request) {
 	}
 	ev := new(Evaluationformdetails)
 
-	de, er := db.Query("select competencyEvaluation_id from competency_evaluation where Student_Student_id=? and Competency_id=? order by visit_stamp desc limit 1;", params["studentid"], params["competencyid"])
+	de, er := db.Query("select competencyEvaluation_id from competency_evaluation where Student_Student_id=\""+ params["studentid"]+"\" and Competency_id=\""+params["competencyid"]+ "\"order by visit_stamp desc limit 1;")
 	if er != nil {
 
 		panic(er.Error())
@@ -278,8 +281,9 @@ func evaluationformdetails(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	de.Close()
+	
 
-	op, er := db.Query("call getfacultyfeedbackformdetails(?)", comeval_id)
+	op, er := db.Query("call getfacultyfeedbackformdetails(\""+strconv.Itoa(comeval_id)+"\");");
 	if er != nil {
 
 		panic(er.Error())
@@ -317,7 +321,7 @@ func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http
 
 	//var competencyids []int=[]int{}
 
-	fd, er := db.Query("select p.person_id,faculty_id from  faculty f,person p where p.person_id=f.person_id and p.email=?;", params["facultyemail"])
+	fd, er := db.Query("select p.person_id,faculty_id from  faculty f,person p where p.person_id=f.person_id and p.email=\""+ params["facultyemail"]+"\";")
 	if er != nil {
 
 		panic(er.Error())
@@ -337,7 +341,7 @@ func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http
 	}
 	fd.Close()
 
-	insert, er := db.Query("call createevaluationrow(?,?,?,?,?)", params["competencyid"], params["studentid"], person_id, faculty_id, params["opnum"])
+	insert, er := db.Query("call createevaluationrow(\""+params["competencyid"]+"\",\""+params["studentid"]+"\",\""+strconv.Itoa(person_id)+"\",\""+ faculty_id+"\",\""+ params["opnum"]+"\");")
 	if er != nil {
 
 		panic(er.Error())
@@ -358,7 +362,7 @@ func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http
 		OptVal     int
 	}
 	cr := make([]*Criteria, 0)
-	cri, er := db.Query("call getcriteriasofcompetency(?)", params["competencyid"])
+	cri, er := db.Query("call getcriteriasofcompetency(\""+params["competencyid"]+"\")")
 	if er != nil {
 
 		panic(er.Error())
@@ -378,7 +382,7 @@ func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http
 	cri.Close()
 
 	co := make([]*CriteriaOptions, 0)
-	opt, er := db.Query("call getcriteriaoptionsofcompetency(?)", params["competencyid"])
+	opt, er := db.Query("call getcriteriaoptionsofcompetency(\""+params["competencyid"]+"\")")
 	if er != nil {
 
 		panic(er.Error())
@@ -436,7 +440,7 @@ func getcompetencyevaluations(w http.ResponseWriter, r *http.Request) {
 		Timest    string  `json:"-"`
 	}
 
-	evalrow, er := db.Query("call getallevalofacompetency(?,?)", params["competencyid"], params["studentid"])
+	evalrow, er := db.Query("call getallevalofacompetency(\""+params["competencyid"]+"\",\""+params["studentid"]+"\");")
 	if er != nil {
 
 		panic(er.Error())
@@ -457,8 +461,8 @@ func getcompetencyevaluations(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err.Error())
 		}
-
-		StudentF, er := datab.Query("CALL getpercentageforeacheval(?,?,?)", "faculty", params["competencyid"], user.CompEvaId)
+typef:="faculty";
+		StudentF, er := datab.Query("CALL getpercentageforeacheval(\""+typef+"\",\""+params["competencyid"]+"\",\""+strconv.Itoa(user.CompEvaId)+"\");");
 		if er != nil {
 
 			panic(er.Error())
@@ -476,8 +480,8 @@ func getcompetencyevaluations(w http.ResponseWriter, r *http.Request) {
 		}
 
 		StudentF.Close()
-
-		StudentS, er := datab.Query("CALL getpercentageforeacheval(?,?,?)", "self", params["competencyid"], user.CompEvaId)
+types:="self"
+		StudentS, er := datab.Query("CALL getpercentageforeacheval(\""+types+"\",\""+params["competencyid"]+"\",\""+strconv.Itoa(user.CompEvaId)+"\");")
 
 		if er != nil {
 
@@ -518,7 +522,7 @@ func getprofile(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	rows, err := db.Query("call getprofile(?)", params["email"])
+	rows, err := db.Query("call getprofile(\""+params["email"]+"\")")
 	if err != nil {
 
 		panic(err.Error())
@@ -545,7 +549,7 @@ func getprofile(w http.ResponseWriter, r *http.Request) {
 
 		if person.Role == "student" {
 
-			row, err := db.Query("call getbatch(?)", params["email"])
+			row, err := db.Query("call getbatch(\""+params["email"]+"\")")
 			if err != nil {
 
 				panic(err.Error())
@@ -629,8 +633,8 @@ func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
 	// 	}
 	// 	compnamelist = append(compnamelist, str)
 	// }
-
-	StudentF, er := db.Query("CALL getevalpercentage(?,?,?)", params["speciality"], "faculty",params["competencyid"])
+typef:="faculty"
+	StudentF, er := db.Query("CALL getevalpercentage(\""+params["speciality"]+"\",\""+typef+"\",\""+params["competencyid"]+"\")")
 	if er != nil {
 
 		panic(er.Error())
@@ -656,8 +660,8 @@ func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	StudentF.Close()
-
-	StudentS, er := db.Query("CALL getevalpercentage(?,?,?)", params["speciality"], "self",params["competencyid"])
+types:="self"
+	StudentS, er := db.Query("CALL getevalpercentage(\""+params["speciality"]+"\",\""+types+"\",\""+params["competencyid"]+"\")")
 
 	if er != nil {
 
@@ -686,29 +690,35 @@ func getcompetencyalongwithstudents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-fmt.Println(scores[0].Adno,scores[0].Competency_id,scores[0].Faculty,scores[0].Self);
-
-fmt.Println(scores[1].Adno,scores[1].Competency_id,scores[1].Faculty,scores[1].Self);
-fmt.Println(scores[2].Adno,scores[2].Competency_id,scores[2].Faculty,scores[1].Self);
-
 
 
 	StudentS.Close()
-	for _, item := range scores {
-		for _, sitem := range st {
+/*
+ for _ , item := range st {
+	fmt.Printf("%+v\n",item)
+	}
+		*/
+		compid,err:=strconv.Atoi(params["competencyid"])
+		if(err!=nil){
+			panic(err.Error())
+		}
+	for _, sitem := range st {
+		fl:=0
+		for _, item := range scores {
 			if item.Adno == sitem.Adno {
 				studentD = append(studentD, &StudentDetails{Name: sitem.Name, Adno: item.Adno, Self: item.Self, Faculty: item.Faculty, Competencynum: item.Competency_id})
-			} else {
-				studentD = append(studentD, &StudentDetails{Name: sitem.Name, Adno: item.Adno, Self: 0, Faculty: 0, Competencynum: item.Competency_id})
-			}
-
+               	fl=1;
+				break		
+				} 
+        }
+		if(fl==0){
+			studentD = append(studentD, &StudentDetails{Name: sitem.Name, Adno: sitem.Adno, Self: 0, Faculty: 0, Competencynum:compid})
 		}
 	}
 
 
 
-
-	rows, err := db.Query("select Competency_Name,competency_id from competency where Speciality_id in ( select Speciality_id from speciality where Speciality_Name=?);", params["speciality"])
+	rows, err := db.Query("select Competency_Name,competency_id from competency where Speciality_id in ( select Speciality_id from speciality where Speciality_Name=\""+params["speciality"]+"\");")
 	if err != nil {
 
 		panic(err.Error())
@@ -823,10 +833,11 @@ func getcompnames(w http.ResponseWriter, r *http.Request) {
 
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
+	
 		panic(err.Error())
 	}
 
-	rows, err := db.Query("call getcompetencies(?)", params["speciality"])
+	rows, err := db.Query("call getcompetencies(\""+params["speciality"]+"\");")
 	if err != nil {
 
 		panic(err.Error())
@@ -903,7 +914,7 @@ func getfacultydetails(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	rows, err := db.Query("select concat(p.first_name,p.last_name) as name,f.speciality from person p,faculty f where p.person_id=f.person_id and p.email=?;", params["email"])
+	rows, err := db.Query("select concat(p.first_name,p.last_name) as name,f.speciality from person p,faculty f where p.person_id=f.person_id and p.email=\""+ params["email"]+"\";")
 	if err != nil {
 
 		panic(err.Error())
@@ -914,8 +925,7 @@ func getfacultydetails(w http.ResponseWriter, r *http.Request) {
 		Name       string `json:"name"`
 		Speciality string `json:"speciality"`
 	}
-
-	res := new(Result)
+res := new(Result)
 	for rows.Next() {
 		user := new(Result)
 		err := rows.Scan(&user.Name, &user.Speciality)
