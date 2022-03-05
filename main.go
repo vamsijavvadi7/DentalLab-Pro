@@ -929,8 +929,9 @@ func getfacultydetails(w http.ResponseWriter, r *http.Request) {
 type Details struct {
 		rest Result `json:"details"`
 	}
-De:=new(Details)
-De.rest=*res
+De:=Details{
+	rest:*res,
+}
 
 	json.NewEncoder(w).Encode(De)
 
