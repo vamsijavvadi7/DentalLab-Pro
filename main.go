@@ -927,13 +927,10 @@ func getfacultydetails(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 type Details struct {
-		rest Result `json:"details"`
+		Rest Result `json:"details"`
 	}
-De:=Details{
-	rest:*res,
-}
-
-	json.NewEncoder(w).Encode(De)
+	
+	json.NewEncoder(w).Encode(Details{Rest:*res})
 
 }
 func loginCheck(w http.ResponseWriter, r *http.Request) {
