@@ -850,6 +850,10 @@ func getcompnames(w http.ResponseWriter, r *http.Request) {
 		CompetencyId   int    `json:"competencyid"`
 	}
 
+	type Details struct {
+		Comp []*Result `json:"details"`
+	}
+
 	res := make([]*Result, 0)
 	for rows.Next() {
 		rt := new(Result)
@@ -860,9 +864,16 @@ func getcompnames(w http.ResponseWriter, r *http.Request) {
 		}
 		res = append(res, rt)
 	}
+	p:=new(Details)
+	p.Comp=make([]*Result, 0)
+	for _, item := range res {
+	p.Comp = append(p.Comp, &Result{CompetencyName :item.CompetencyName,CompetencyId: item.CompetencyId});
+	}
+
 	defer rows.Close()
 
-	json.NewEncoder(w).Encode(res)
+	json.NewEncoder(w).Encode(p)
+
 
 }
 
