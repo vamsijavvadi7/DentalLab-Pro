@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	
 	//"fmt"
 
 	"log"
@@ -36,6 +37,8 @@ func main() {
 	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}/competencyid/{competencyid}", getcompetencyalongwithstudents).Methods("GET")
 	r.HandleFunc("/profile/email/{email}", getprofile).Methods("GET")
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", getcompetencyevaluations).Methods("GET")
+		r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", addroweval).Methods("POST")
+	
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum/{opnum}/femail/{facultyemail}", createarowincompetencyevaluationsandsendform).Methods("GET")
 	r.HandleFunc("/competencyevaluationsdetails/competencyid/{competencyid}/studentid/{studentid}", evaluationformdetails).Methods("GET")
 
@@ -321,33 +324,6 @@ func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http
 
 	//var competencyids []int=[]int{}
 
-	fd, er := db.Query("select p.person_id,faculty_id from  faculty f,person p where p.person_id=f.person_id and p.email=\""+ params["facultyemail"]+"\";")
-	if er != nil {
-
-		panic(er.Error())
-
-	}
-	var faculty_id string
-	var person_id int
-
-	for fd.Next() {
-
-		err := fd.Scan(&person_id, &faculty_id)
-
-		if err != nil {
-			panic(err)
-
-		}
-	}
-	fd.Close()
-
-	insert, er := db.Query("call createevaluationrow(\""+params["competencyid"]+"\",\""+params["studentid"]+"\",\""+strconv.Itoa(person_id)+"\",\""+ faculty_id+"\",\""+ params["opnum"]+"\");")
-	if er != nil {
-
-		panic(er.Error())
-
-	}
-	insert.Close()
 
 	type Criteria struct {
 		CriteriaId int    `json:"criteiaid"`
@@ -414,6 +390,62 @@ func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http
 	}
 
 	json.NewEncoder(w).Encode(cr)
+
+}
+
+func addroweval(w http.ResponseWriter, r *http.Request){
+
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+	type Result struct{
+		Opnum string `json:"opnum"`
+		Fmail string `json:"fmail"`
+	}
+	
+	res:=new(Result)
+		erro := json.NewDecoder(r.Body).Decode(&res)
+	if erro != nil {
+		panic(erro.Error())
+	}
+ 
+	fd, er := db.Query("select p.person_id,faculty_id from  faculty f,person p where p.person_id=f.person_id and p.email=\""+ res.Fmail+"\";")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+	var faculty_id string
+	var person_id int
+
+	for fd.Next() {
+
+		err := fd.Scan(&person_id, &faculty_id)
+
+		if err != nil {
+			panic(err)
+
+		}
+	}
+	fd.Close()
+
+
+
+	insert, er := db.Query("call createevaluationrow(\""+params["competencyid"]+"\",\""+params["studentid"]+"\",\""+strconv.Itoa(person_id)+"\",\""+ faculty_id+"\",\""+res.Opnum+"\");")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+	insert.Close()
+
+	json.NewEncoder(w).Encode(res)
 
 }
 
@@ -849,10 +881,9 @@ func getcompnames(w http.ResponseWriter, r *http.Request) {
 		CompetencyName string `json:"competencyname"`
 		CompetencyId   int    `json:"competencyid"`
 	}
-
-	/*type Details struct {
+		type Details struct {
 		Comp []*Result `json:"details"`
-	}*/
+	}
 
 	res := make([]*Result, 0)
 	for rows.Next() {
@@ -864,16 +895,15 @@ func getcompnames(w http.ResponseWriter, r *http.Request) {
 		}
 		res = append(res, rt)
 	}
-	/*p:=new(Details)
+	p:=new(Details)
 	p.Comp=make([]*Result, 0)
 	for _, item := range res {
 	p.Comp = append(p.Comp, &Result{CompetencyName :item.CompetencyName,CompetencyId: item.CompetencyId});
-	}*/
+	}
 
 	defer rows.Close()
 
-	json.NewEncoder(w).Encode(res)
-
+	json.NewEncoder(w).Encode(p)
 
 }
 
@@ -947,9 +977,11 @@ res := new(Result)
 		res=user
 	}
 	defer rows.Close()
-
+type Details struct {
+		Rest Result `json:"details"`
+	}
 	
-	json.NewEncoder(w).Encode(res)
+	json.NewEncoder(w).Encode(Details{Rest:*res})
 
 }
 func loginCheck(w http.ResponseWriter, r *http.Request) {
