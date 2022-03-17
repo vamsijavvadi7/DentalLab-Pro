@@ -977,11 +977,11 @@ res := new(Result)
 		res=user
 	}
 	defer rows.Close()
-type Details struct {
+/*type Details struct {
 		Rest Result `json:"details"`
-	}
-	
-	json.NewEncoder(w).Encode(Details{Rest:*res})
+	}*/
+	//Details{Rest:*res}
+	json.NewEncoder(w).Encode(res)
 
 }
 func loginCheck(w http.ResponseWriter, r *http.Request) {
