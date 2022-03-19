@@ -37,7 +37,7 @@ func main() {
 	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}/competencyid/{competencyid}", getcompetencyalongwithstudents).Methods("GET")
 	r.HandleFunc("/profile/email/{email}", getprofile).Methods("GET")
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", getcompetencyevaluations).Methods("GET")
-		r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", addroweval).Methods("POST")
+		r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum", addroweval).Methods("POST")
 	
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum/{opnum}/femail/{facultyemail}", createarowincompetencyevaluationsandsendform).Methods("GET")
 	r.HandleFunc("/competencyevaluationsdetails/competencyid/{competencyid}/studentid/{studentid}", evaluationformdetails).Methods("GET")
