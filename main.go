@@ -37,17 +37,266 @@ func main() {
 	r.HandleFunc("/fdashboard/competencydetails/speciality/{speciality}/competencyid/{competencyid}", getcompetencyalongwithstudents).Methods("GET")
 	r.HandleFunc("/profile/email/{email}", getprofile).Methods("GET")
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", getcompetencyevaluations).Methods("GET")
-		r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum", addroweval).Methods("POST")
-	
-	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum/{opnum}/femail/{facultyemail}", createarowincompetencyevaluationsandsendform).Methods("GET")
-	r.HandleFunc("/competencyevaluationsdetails/competencyid/{competencyid}/studentid/{studentid}", evaluationformdetails).Methods("GET")
+	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum", addroweval).Methods("POST")
+	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/competencyevaluationid/{competencyevaluationid}", getfeedbackform).Methods("GET")
+	// r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum/{opnum}/femail/{facultyemail}", createarowincompetencyevaluationsandsendform).Methods("GET")
+	// r.HandleFunc("/competencyevaluationsdetails/competencyid/{competencyid}/studentid/{studentid}", evaluationformdetails).Methods("GET")
 
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", postform).Methods("POST")
 	r.HandleFunc("/facultytodo/meet/{email}", facultytodomeet).Methods("GET")
 	r.HandleFunc("/facultytodo/reference/{email}", facultytodoreference).Methods("GET")
-	//r.HandleFunc("/studentdashboard/studentmail/{email}",studentdashboardspecialities).Methods("GET")
-	r.HandleFunc("/studentdashboarddetails/studentmail/{email}", studentdashboarddetails).Methods("GET")
+	r.HandleFunc("/studentdashboard/details/studentmail/{email}", studentdashboarddetails).Methods("GET")
+	r.HandleFunc("/studentdashboard/specialities", getspecnames).Methods("GET")
+	r.HandleFunc("/studentdashboard/email/{email}/speciality/{speciality}",getstudentdashboardspecialitieswithcompetencies).Methods("GET")
 	log.Fatal(http.ListenAndServe(":"+port, r))
+
+}
+func getstudentdashboardspecialitieswithcompetencies(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	type CompetencyDetails struct {
+        Competencynum  int `json:"competencyid"`
+		CompetencyName string  `json:"competencyname"`
+		Self           float64 `json:"self"` // <-- CHANGED THIS LINE
+		Faculty        float64 `json:"faculty"`
+		
+	}
+
+	defer db.Close()
+
+	
+	strow, er := db.Query("select student_id from person p,student s where p.person_id=s.person_id and email=\""+params["email"]+"\";")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+	defer strow.Close()
+	student_id:=""
+	for strow.Next() {
+		
+		err := strow.Scan(&student_id)
+
+		if err != nil {
+			panic(err)
+		}
+		
+
+	}
+	type Competencys struct {
+		CompName string `json:"name"` // <-- CHANGED THIS LINE
+		Compid int `json:"regno"`
+	}
+
+	comprow, er := db.Query("call getcompetencies(\""+params["speciality"]+"\")")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+	defer comprow.Close()
+	st := make([]*Competencys, 0)
+	for comprow.Next() {
+		user := new(Competencys)
+		err := comprow.Scan(&user.CompName, &user.Compid)
+
+		if err != nil {
+			panic(err)
+		}
+		st = append(st, user)
+
+	}
+
+
+
+	compD := make([]*CompetencyDetails, 0);
+	
+
+typef:="faculty"
+	StudentF, er := db.Query("CALL getevalpercentageinstudentpage(\""+params["speciality"]+"\",\""+typef+"\",\""+student_id+"\")")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	type Score struct {
+		Competency_Name          string
+		Competency_id int
+		Self          float64  // <-- CHANGED THIS LINE
+		Faculty       float64 
+	}
+	scores := make([]*Score, 0)
+
+	for StudentF.Next() {
+		sc := new(Score)
+		err := StudentF.Scan(&sc.Faculty, &sc.Competency_id, &sc.Competency_Name)
+
+		if err != nil {
+			panic(err)
+		}
+		scores = append(scores, sc)
+	}
+
+	StudentF.Close()
+types:="self"
+	StudentS, er := db.Query("CALL getevalpercentageinstudentpage(\""+params["speciality"]+"\",\""+types+"\",\""+student_id+"\")")
+
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	for StudentS.Next() {
+		var compid int
+		var compname string
+		var selfpercentage float64
+
+		err := StudentS.Scan(&selfpercentage, &compid, &compname)
+
+		if err != nil {
+			panic(err)
+		}
+		for index, item := range scores {
+			if item.Competency_id == compid {
+				scores = append(scores[:index], scores[index+1:]...)
+				scores = append(scores, &Score{Competency_Name: item.Competency_Name, Competency_id: item.Competency_id, Self: selfpercentage, Faculty: item.Faculty})
+
+				break
+			}
+
+		}
+	}
+
+
+
+	StudentS.Close()
+
+	for _, sitem := range st {
+		fl:=0
+		for _, item := range scores {
+			if item.Competency_id == sitem.Compid {
+				compD = append(compD, &CompetencyDetails{Self: item.Self, Faculty: item.Faculty, Competencynum: item.Competency_id,CompetencyName:item.Competency_Name})
+               	fl=1;
+				break		
+				} 
+        }
+		if(fl==0){
+			compD = append(compD, &CompetencyDetails{Self: 0, Faculty: 0,Competencynum: sitem.Compid,CompetencyName:sitem.CompName})
+		}
+	}
+
+
+
+	json.NewEncoder(w).Encode(compD)
+}
+
+func getspecnames(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+	
+		panic(err.Error())
+	}
+
+	rows, err := db.Query("call getspecialitys();")
+	if err != nil {
+
+		panic(err.Error())
+
+	}
+	defer db.Close()
+
+	type Result struct {
+		SpecialityName string `json:"specialityName"`
+		SpecialityId   int    `json:"SpecialityId "`
+	}
+		type Details struct {
+		Comp []*Result `json:"details"`
+	}
+
+	res := make([]*Result, 0)
+	for rows.Next() {
+		rt := new(Result)
+		err := rows.Scan(&rt.SpecialityName, &rt.SpecialityId)
+
+		if err != nil {
+			panic(err)
+		}
+		res = append(res, rt)
+	}
+	p:=new(Details)
+	p.Comp=make([]*Result, 0)
+	for _, item := range res {
+	p.Comp = append(p.Comp, &Result{SpecialityName :item.SpecialityName,SpecialityId: item.SpecialityId});
+	}
+
+	defer rows.Close()
+
+	json.NewEncoder(w).Encode(p)
+
+}
+
+func studentdashboarddetails(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+
+	//var competencyids []int=[]int{}
+
+	fd, er := db.Query("select concat(p.first_name,p.last_name) from person p,student s where p.email=\""+params["email"]+"\"and s.person_id=p.person_id;")
+	if er != nil {
+
+		panic(er.Error())
+	}
+	type Student struct {
+		Name  string `json:"name"`
+		Batch string `json:"batch"`
+	}
+	St := new(Student)
+	for fd.Next() {
+
+		err := fd.Scan(&St.Name)
+
+		if err != nil {
+			panic(err)
+
+		}
+	}
+	fd.Close()
+	ba, er := db.Query("CALL batch(\""+params["email"]+"\");")
+	if er != nil {
+
+		panic(er.Error())
+	}
+
+	for ba.Next() {
+
+		err := ba.Scan(&St.Batch)
+
+		if err != nil {
+			panic(err)
+
+		}
+	}
+	ba.Close()
+
+	json.NewEncoder(w).Encode(St)
 
 }
 
@@ -190,8 +439,155 @@ func postform(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func studentdashboarddetails(w http.ResponseWriter, r *http.Request) {
+// func evaluationformdetails(w http.ResponseWriter, r *http.Request) {
+// 	w.Header().Set("Content-Type", "application/json")
+// 	params := mux.Vars(r) // Gets params
 
+// 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+// 	if err != nil {
+// 		panic(err.Error())
+// 	}
+
+// 	defer db.Close()
+
+// 	//var competencyids []int=[]int{}
+
+// 	type Evaluationformdetails struct {
+// 		EvaluationId int    `json:"compevaluationid"`
+// 		Opnum        string `json:"patientop"`
+// 		Date         string `json:"date"`
+// 		Time         string `json:"time"`
+// 		StudentName  string `json:"studentname"`
+// 	}
+// 	ev := new(Evaluationformdetails)
+
+// 	de, er := db.Query("select competencyEvaluation_id from competency_evaluation where Student_Student_id=\""+ params["studentid"]+"\" and Competency_id=\""+params["competencyid"]+ "\"order by visit_stamp desc limit 1;")
+// 	if er != nil {
+
+// 		panic(er.Error())
+
+// 	}
+// 	var comeval_id int
+// 	for de.Next() {
+
+// 		err := de.Scan(&comeval_id)
+
+// 		if err != nil {
+// 			panic(err)
+
+// 		}
+// 	}
+// 	de.Close()
+	
+
+// 	op, er := db.Query("call getfacultyfeedbackformdetails(\""+strconv.Itoa(comeval_id)+"\");");
+// 	if er != nil {
+
+// 		panic(er.Error())
+
+// 	}
+
+// 	for op.Next() {
+
+// 		err := op.Scan(&ev.StudentName, &ev.Opnum, &ev.Date, &ev.Time)
+
+// 		if err != nil {
+// 			panic(err)
+
+// 		}
+// 	}
+// 	op.Close()
+
+// 	ev.EvaluationId = comeval_id
+
+// 	json.NewEncoder(w).Encode(ev)
+
+// }
+
+// func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http.Request) {
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	params := mux.Vars(r) // Gets params
+
+// 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+// 	if err != nil {
+// 		panic(err.Error())
+// 	}
+
+// 	defer db.Close()
+
+// 	//var competencyids []int=[]int{}
+
+
+// 	type Criteria struct {
+// 		CriteriaId int    `json:"criteiaid"`
+// 		CriteriaQs string `json:"criteriaqs"`
+// 		Option0    string `json:"option0"`
+// 		Option1    string `json:"option1"`
+// 		Option2    string `json:"option2"`
+// 	}
+// 	type CriteriaOptions struct {
+// 		CriteriaId int    `json:"criteiaid"`
+// 		Option     string `json:"option"`
+// 		OptVal     int
+// 	}
+// 	cr := make([]*Criteria, 0)
+// 	cri, er := db.Query("call getcriteriasofcompetency(\""+params["competencyid"]+"\")")
+// 	if er != nil {
+
+// 		panic(er.Error())
+
+// 	}
+
+// 	for cri.Next() {
+// 		cop := new(Criteria)
+// 		err := cri.Scan(&cop.CriteriaId, &cop.CriteriaQs)
+
+// 		if err != nil {
+// 			panic(err)
+
+// 		}
+// 		cr = append(cr, cop)
+// 	}
+// 	cri.Close()
+
+// 	co := make([]*CriteriaOptions, 0)
+// 	opt, er := db.Query("call getcriteriaoptionsofcompetency(\""+params["competencyid"]+"\")")
+// 	if er != nil {
+
+// 		panic(er.Error())
+
+// 	}
+
+// 	for opt.Next() {
+// 		cop := new(CriteriaOptions)
+// 		err := opt.Scan(&cop.CriteriaId, &cop.Option, &cop.OptVal)
+
+// 		if err != nil {
+// 			panic(err)
+
+// 		}
+// 		co = append(co, cop)
+// 	}
+// 	opt.Close()
+// 	for _, crit := range cr {
+// 		for _, option := range co {
+// 			if option.CriteriaId == crit.CriteriaId && option.OptVal == 0 {
+// 				crit.Option0 = option.Option
+// 			} else if option.CriteriaId == crit.CriteriaId && option.OptVal == 1 {
+// 				crit.Option1 = option.Option
+// 			} else if option.CriteriaId == crit.CriteriaId && option.OptVal == 2 {
+// 				crit.Option2 = option.Option
+// 			}
+// 		}
+
+// 	}
+
+// 	json.NewEncoder(w).Encode(cr)
+
+// }
+
+func getfeedbackform(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Gets params
 
@@ -203,90 +599,52 @@ func studentdashboarddetails(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	//var competencyids []int=[]int{}
-
-	fd, er := db.Query("select concat(p.first_name,p.last_name) from person p,student s where p.email=\""+params["email"]+"\"and s.person_id=p.person_id;")
-	if er != nil {
-
-		panic(er.Error())
+type Criteria struct {
+		CriteriaId int    `json:"criteiaid"`
+		CriteriaQs string `json:"criteriaqs"`
+		Option0    string `json:"option0"`
+		Option1    string `json:"option1"`
+		Option2    string `json:"option2"`
 	}
-	type Student struct {
-		Name  string `json:"name"`
-		Batch string `json:"batch"`
+	type CriteriaOptions struct {
+		CriteriaId int    `json:"criteiaid"`
+		Option     string `json:"option"`
+		OptVal     int
 	}
-	St := new(Student)
-	for fd.Next() {
-
-		err := fd.Scan(&St.Name)
-
-		if err != nil {
-			panic(err)
-
-		}
-	}
-	fd.Close()
-	ba, er := db.Query("CALL batch(\""+params["email"]+"\");")
-	if er != nil {
-
-		panic(er.Error())
-	}
-
-	for ba.Next() {
-
-		err := ba.Scan(&St.Batch)
-
-		if err != nil {
-			panic(err)
-
-		}
-	}
-	ba.Close()
-
-	json.NewEncoder(w).Encode(St)
-
-}
-
-func evaluationformdetails(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r) // Gets params
-
-	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
-	if err != nil {
-		panic(err.Error())
-	}
-
-	defer db.Close()
-
-	//var competencyids []int=[]int{}
-
 	type Evaluationformdetails struct {
 		EvaluationId int    `json:"compevaluationid"`
 		Opnum        string `json:"patientop"`
 		Date         string `json:"date"`
 		Time         string `json:"time"`
 		StudentName  string `json:"studentname"`
+	
+		FacultyName  string `json:"facultyname"`
+		Crit []*Criteria `json:"criteriadetails"`
 	}
-	ev := new(Evaluationformdetails)
-
-	de, er := db.Query("select competencyEvaluation_id from competency_evaluation where Student_Student_id=\""+ params["studentid"]+"\" and Competency_id=\""+params["competencyid"]+ "\"order by visit_stamp desc limit 1;")
-	if er != nil {
-
-		panic(er.Error())
-
-	}
-	var comeval_id int
-	for de.Next() {
-
-		err := de.Scan(&comeval_id)
-
-		if err != nil {
-			panic(err)
-
-		}
-	}
-	de.Close()
 	
 
-	op, er := db.Query("call getfacultyfeedbackformdetails(\""+strconv.Itoa(comeval_id)+"\");");
+	ev := new(Evaluationformdetails)
+
+	// de, er := db.Query("select competencyEvaluation_id from competency_evaluation where Student_Student_id=\""+ params["studentid"]+"\" and Competency_id=\""+params["competencyid"]+ "\"order by visit_stamp desc limit 1;")
+	// if er != nil {
+
+	// 	panic(er.Error())
+
+	// }
+	// var comeval_id int
+	// for de.Next() {
+
+	// 	err := de.Scan(&comeval_id)
+
+	// 	if err != nil {
+	// 		panic(err)
+
+	// 	}
+	// }
+	// de.Close()
+	
+
+	op, er := db.Query("call getfacultyfeedbackformdetails(\""+params["competencyevaluationid"]+"\");");
 	if er != nil {
 
 		panic(er.Error())
@@ -303,40 +661,32 @@ func evaluationformdetails(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	op.Close()
+	fa, er := db.Query("select concat(p.first_name,p.last_name) from competency_evaluation ce,person p,faculty f where ce.CompetencyEvaluation_id=\""+params["competencyevaluationid"]+"\" and ce.Faculty_Faculty_id=f.faculty_id and f.person_id=p.person_id;");
+	if er != nil {
 
-	ev.EvaluationId = comeval_id
+		panic(er.Error())
 
-	json.NewEncoder(w).Encode(ev)
-
-}
-
-func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r) // Gets params
-
-	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
-	if err != nil {
-		panic(err.Error())
 	}
+fname:="";
+	for fa.Next() {
 
-	defer db.Close()
+		err := fa.Scan(&fname)
 
-	//var competencyids []int=[]int{}
+		if err != nil {
+			panic(err)
 
-
-	type Criteria struct {
-		CriteriaId int    `json:"criteiaid"`
-		CriteriaQs string `json:"criteriaqs"`
-		Option0    string `json:"option0"`
-		Option1    string `json:"option1"`
-		Option2    string `json:"option2"`
+		}
 	}
-	type CriteriaOptions struct {
-		CriteriaId int    `json:"criteiaid"`
-		Option     string `json:"option"`
-		OptVal     int
-	}
+	fa.Close()
+
+	ev.EvaluationId,err= strconv.Atoi(params["competencyevaluationid"])
+
+ev.FacultyName=fname
+
+
+
+
+	
 	cr := make([]*Criteria, 0)
 	cri, er := db.Query("call getcriteriasofcompetency(\""+params["competencyid"]+"\")")
 	if er != nil {
@@ -344,6 +694,8 @@ func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http
 		panic(er.Error())
 
 	}
+		
+	
 
 	for cri.Next() {
 		cop := new(Criteria)
@@ -389,7 +741,14 @@ func createarowincompetencyevaluationsandsendform(w http.ResponseWriter, r *http
 
 	}
 
-	json.NewEncoder(w).Encode(cr)
+
+
+
+ev.Crit=make([]*Criteria, 0)
+	for _, item := range cr {
+	ev.Crit = append(ev.Crit, &Criteria{CriteriaId :item.CriteriaId,CriteriaQs: item.CriteriaQs,Option0 :item.Option0,Option1: item.Option1,Option2: item.Option2});
+	}
+json.NewEncoder(w).Encode(ev)
 
 }
 
@@ -977,11 +1336,11 @@ res := new(Result)
 		res=user
 	}
 	defer rows.Close()
-/*type Details struct {
+type Details struct {
 		Rest Result `json:"details"`
-	}*/
-	//Details{Rest:*res}
-	json.NewEncoder(w).Encode(res)
+	}
+	
+	json.NewEncoder(w).Encode(Details{Rest:*res})
 
 }
 func loginCheck(w http.ResponseWriter, r *http.Request) {
