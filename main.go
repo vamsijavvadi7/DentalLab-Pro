@@ -42,7 +42,9 @@ func main() {
 	// r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum/{opnum}/femail/{facultyemail}", createarowincompetencyevaluationsandsendform).Methods("GET")
 	// r.HandleFunc("/competencyevaluationsdetails/competencyid/{competencyid}/studentid/{studentid}", evaluationformdetails).Methods("GET")
 
-	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", postform).Methods("POST")
+	
+r.HandleFunc("/competencyevaluations/competencyevaluationid/{competencyevaluationid}", postform).Methods("POST")
+
 	r.HandleFunc("/facultytodo/meet/{email}", facultytodomeet).Methods("GET")
 	r.HandleFunc("/facultytodo/reference/{email}", facultytodoreference).Methods("GET")
 	r.HandleFunc("/studentdashboard/details/studentmail/{email}", studentdashboarddetails).Methods("GET")
@@ -50,6 +52,42 @@ func main() {
 	r.HandleFunc("/studentdashboard/email/{email}/speciality/{speciality}",getstudentdashboardspecialitieswithcompetencies).Methods("GET")
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
+}
+
+func postform(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+	type Form struct {
+		Criteriaid  int `json:"criteriaid"`
+		Score       int `json:"score"`
+		Refermatter string `json:"matter"`
+	}
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+
+	var feedback []Form
+	erro := json.NewDecoder(r.Body).Decode(&feedback)
+	if erro != nil {
+		panic(erro.Error())
+	}
+
+	for _, item := range feedback {
+
+		     a:="call postform(\""+strconv.Itoa(item.Criteriaid)  + "\",\"" + params["competencyevaluationid"]+"\",\""+strconv.Itoa(item.Score)+"\",\""+item.Refermatter+"\");";
+		fd, er := db.Query(a)
+		if er != nil {
+
+			panic(er.Error())
+		}
+		fd.Close()
+	}
+json.NewEncoder(w).Encode(feedback)
 }
 func getstudentdashboardspecialitieswithcompetencies(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -385,60 +423,6 @@ func facultytodomeet(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(sts)
 
 }
-
-func postform(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
-	type Form struct {
-		Criteriaid  int `json:"criteriaid"`
-		Score       int `json:"score"`
-		Refermatter string
-	}
-
-	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
-	if err != nil {
-		panic(err.Error())
-	}
-
-	defer db.Close()
-
-	de, er := db.Query("select competencyEvaluation_id from competency_evaluation where Student_Student_id=\""+params["studentid"]+"\" and Competency_id=\""+params["competencyid"]+"\"order by visit_stamp desc limit 1; ");
-	if er != nil {
-
-		panic(er.Error())
-
-	}
-	var comeval_id int
-	for de.Next() {
-
-		err := de.Scan(&comeval_id)
-
-		if err != nil {
-			panic(err)
-
-		}
-	}
-	de.Close()
-	var feedback []Form
-	erro := json.NewDecoder(r.Body).Decode(&feedback)
-	if erro != nil {
-		panic(erro.Error())
-	}
-
-	for _, item := range feedback {
-
-		     a:="call postform(\""+ strconv.Itoa(item.Criteriaid) + "\",\"" + strconv.Itoa(comeval_id)+"\",\""+strconv.Itoa(item.Score)+"\",\""+item.Refermatter+"\");";
-		fd, er := db.Query(a)
-		if er != nil {
-
-			panic(er.Error())
-		}
-		fd.Close()
-	}
-
-}
-
 // func evaluationformdetails(w http.ResponseWriter, r *http.Request) {
 // 	w.Header().Set("Content-Type", "application/json")
 // 	params := mux.Vars(r) // Gets params
