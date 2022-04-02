@@ -24,6 +24,11 @@ type User struct {
 	Role     string
 }
 
+/*select criteria_id,reference_matter from reference where evaluation_type="faculty" and competency_evaluation_id=164;
+select Score_Type_Value,Criteria_id from score where CompetencyEvaluation_id=184 and ScoreType_id="faculty";
+select meet_time from meet where competency_evaluation_id=184 and need_meet=0 and evaluation_type="faculty";
+*/
+
 func main() {
 
 	r := mux.NewRouter()
@@ -43,7 +48,7 @@ func main() {
 	// r.HandleFunc("/competencyevaluationsdetails/competencyid/{competencyid}/studentid/{studentid}", evaluationformdetails).Methods("GET")
 
 	r.HandleFunc("/competencyevaluations/competencyevaluationid/{competencyevaluationid}", postform).Methods("POST")
-	//r.HandleFunc("/competencyevaluations/view/competencyevaluationid/{competencyevaluationid}",getfeedbackformawithsubmissiondetails).Methods("GET")
+	r.HandleFunc("/competencyevaluations/facultyview/competencyid/{competencyid}/competencyevaluationid/{competencyevaluationid}", getfeedbackformawithsubmissiondetails).Methods("GET")
 
 	r.HandleFunc("/facultytodo/meet/{email}", facultytodomeet).Methods("GET")
 	r.HandleFunc("/facultytodo/reference/{email}", facultytodoreference).Methods("GET")
@@ -52,147 +57,224 @@ func main() {
 	r.HandleFunc("/studentdashboard/email/{email}/speciality/{speciality}", getstudentdashboardspecialitieswithcompetencies).Methods("GET")
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
- }
-// func getfeedbackformawithsubmissiondetails(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Set("Content-Type", "application/json")
-// 	params := mux.Vars(r) // Gets params
+}
 
-// 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
+func getfeedbackformawithsubmissiondetails(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
 
-// 	defer db.Close()
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
 
-// 	//var competencyids []int=[]int{}
-// 	type Criteria struct {
-// 		CriteriaId int    `json:"criteiaid"`
-// 		CriteriaQs string `json:"criteriaqs"`
-// 		Optionmatter    string `json:"optionmatter"`
-// 		Optval int `json:"optionval"`
-// 		Refermatter string `json:"refermatter"`
-// 	}
-// 	type CriteriaOptions struct {
-// 		CriteriaId int    `json:"criteiaid"`
-// 		Option     string `json:"option"`
-// 		OptVal     int
-// 	}
-// 	type Evaluationformdetails struct {
-// 		EvaluationId int    `json:"compevaluationid"`
-// 		Opnum        string `json:"patientop"`
-// 		Date         string `json:"date"`
-// 		Time         string `json:"time"`
-// 		StudentName  string `json:"studentname"`
+	defer db.Close()
 
-// 		FacultyName string `json:"facultyname"`
-// 		Crit        []*Criteria `json:"criteriadetails"`
-// 		Meet string `json:"meettime"`
-	
+	type Criteria struct {
+		CriteriaId   int    `json:"criteiaid"`
+		CriteriaQs   string `json:"criteriaqs"`
+		Optionmatter string `json:"optionmatter"`
+		Optval       int    `json:"optionval"`
+		Refermatter  string `json:"refermatter"`
+	}
+	type CriteriaOptions struct {
+		CriteriaId int    `json:"criteiaid"`
+		Option     string `json:"option"`
+		OptVal     int
+	}
+	type Evaluationformdetails struct {
+		EvaluationId int    `json:"compevaluationid"`
+		Opnum        string `json:"patientop"`
+		Date         string `json:"date"`
+		Time         string `json:"time"`
+		StudentName  string `json:"studentname"`
 
-// 	}
+		FacultyName string      `json:"facultyname"`
+		Crit        []*Criteria `json:"criteriadetails"`
+		Meet        string      `json:"meettime"`
+	}
 
-// 	ev := new(Evaluationformdetails)
+	ev := new(Evaluationformdetails)
 
+	op, er := db.Query("call getfacultyfeedbackformdetails(\"" + params["competencyevaluationid"] + "\");")
+	if er != nil {
 
+		panic(er.Error())
 
-// 	op, er := db.Query("call getfacultyfeedbackformdetails(\"" + params["competencyevaluationid"] + "\");")
-// 	if er != nil {
+	}
 
-// 		panic(er.Error())
+	for op.Next() {
 
-// 	}
+		err := op.Scan(&ev.StudentName, &ev.Opnum, &ev.Date, &ev.Time)
 
-// 	for op.Next() {
+		if err != nil {
+			panic(err)
 
-// 		err := op.Scan(&ev.StudentName, &ev.Opnum, &ev.Date, &ev.Time)
+		}
+	}
+	op.Close()
+	fa, er := db.Query("select concat(p.first_name,p.last_name) from competency_evaluation ce,person p,faculty f where ce.CompetencyEvaluation_id=\"" + params["competencyevaluationid"] + "\" and ce.Faculty_Faculty_id=f.faculty_id and f.person_id=p.person_id;")
+	if er != nil {
 
-// 		if err != nil {
-// 			panic(err)
+		panic(er.Error())
 
-// 		}
-// 	}
-// 	op.Close()
-// 	fa, er := db.Query("select concat(p.first_name,p.last_name) from competency_evaluation ce,person p,faculty f where ce.CompetencyEvaluation_id=\"" + params["competencyevaluationid"] + "\" and ce.Faculty_Faculty_id=f.faculty_id and f.person_id=p.person_id;")
-// 	if er != nil {
+	}
+	fname := ""
+	for fa.Next() {
 
-// 		panic(er.Error())
+		err := fa.Scan(&fname)
 
-// 	}
-// 	fname := ""
-// 	for fa.Next() {
+		if err != nil {
+			panic(err)
 
-// 		err := fa.Scan(&fname)
+		}
+	}
+	fa.Close()
 
-// 		if err != nil {
-// 			panic(err)
+	ev.EvaluationId, err = strconv.Atoi(params["competencyevaluationid"])
 
-// 		}
-// 	}
-// 	fa.Close()
+	ev.FacultyName = fname
 
-// 	ev.EvaluationId, err = strconv.Atoi(params["competencyevaluationid"])
+	cr := make([]*Criteria, 0)
+	cri, er := db.Query("call getcriteriasofcompetency(\"" + params["competencyid"] + "\")")
+	if er != nil {
 
-// 	ev.FacultyName = fname
+		panic(er.Error())
 
-// 	cr := make([]*Criteria, 0)
-// 	cri, er := db.Query("call getcriteriasofcompetency(\"" + params["competencyid"] + "\")")
-// 	if er != nil {
+	}
 
-// 		panic(er.Error())
+	for cri.Next() {
+		cop := new(Criteria)
+		err := cri.Scan(&cop.CriteriaId, &cop.CriteriaQs)
 
-// 	}
+		if err != nil {
+			panic(err)
 
-// 	for cri.Next() {
-// 		cop := new(Criteria)
-// 		err := cri.Scan(&cop.CriteriaId, &cop.CriteriaQs)
+		}
+		cr = append(cr, cop)
+	}
+	cri.Close()
 
-// 		if err != nil {
-// 			panic(err)
+	co := make([]*CriteriaOptions, 0)
+	opt, er := db.Query("call getcriteriaoptionsofcompetency(\"" + params["competencyid"] + "\")")
+	if er != nil {
 
-// 		}
-// 		cr = append(cr, cop)
-// 	}
-// 	cri.Close()
+		panic(er.Error())
 
-// 	co := make([]*CriteriaOptions, 0)
-// 	opt, er := db.Query("call getcriteriaoptionsofcompetency(\"" + params["competencyid"] + "\")")
-// 	if er != nil {
+	}
 
-// 		panic(er.Error())
+	for opt.Next() {
+		cop := new(CriteriaOptions)
+		err := opt.Scan(&cop.CriteriaId, &cop.Option, &cop.OptVal)
 
-// 	}
+		if err != nil {
+			panic(err)
 
-// 	for opt.Next() {
-// 		cop := new(CriteriaOptions)
-// 		err := opt.Scan(&cop.CriteriaId, &cop.Option, &cop.OptVal)
+		}
+		co = append(co, cop)
+	}
+	opt.Close()
+	type CriteriaScore struct {
+		CriteriaId int `json:"criteiaid"`
+		Optval     int `json:"optionval"`
+	}
+	csc := make([]*CriteriaScore, 0)
+	opo, er := db.Query("select Criteria_id,Score_Type_Value from score where CompetencyEvaluation_id=\"" + params["competencyevaluationid"] + "\"and ScoreType_id=\"faculty\";")
+	if er != nil {
 
-// 		if err != nil {
-// 			panic(err)
+		panic(er.Error())
 
-// 		}
-// 		co = append(co, cop)
-// 	}
-// 	opt.Close()
-// 	for _, crit := range cr {
-// 		for _, option := range co {
-// 			if option.CriteriaId == crit.CriteriaId && option.OptVal == 0 {
-// 				crit.Option0 = option.Option
-// 			} else if option.CriteriaId == crit.CriteriaId && option.OptVal == 1 {
-// 				crit.Option1 = option.Option
-// 			} else if option.CriteriaId == crit.CriteriaId && option.OptVal == 2 {
-// 				crit.Option2 = option.Option
-// 			}
-// 		}
+	}
 
-// 	}
+	for opo.Next() {
+		cop := new(CriteriaScore)
+		err := opo.Scan(&cop.CriteriaId, &cop.Optval)
 
-// 	ev.Crit = make([]*Criteria, 0)
-// 	for _, item := range cr {
-// 		ev.Crit = append(ev.Crit, &Criteria{CriteriaId: item.CriteriaId, CriteriaQs: item.CriteriaQs, Option0: item.Option0, Option1: item.Option1, Option2: item.Option2})
-// 	}
-// 	json.NewEncoder(w).Encode(ev)
+		if err != nil {
+			panic(err)
 
-// }
+		}
+		csc = append(csc, cop)
+	}
+	opo.Close()
+
+	for _, crit := range cr {
+		for _, option := range csc {
+			if option.CriteriaId == crit.CriteriaId {
+				crit.Optval = option.Optval
+			}
+		}
+
+	}
+	type CriteriaMatter struct {
+		CriteriaId int `json:"criteiaid"`
+		Matter     string
+	}
+	cm := make([]*CriteriaMatter, 0)
+	opl, er := db.Query("select criteria_id,reference_matter from reference where evaluation_type=\"faculty\" and competency_evaluation_id=\"" + params["competencyevaluationid"] + "\";")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	for opl.Next() {
+		cop := new(CriteriaMatter)
+		err := opl.Scan(&cop.CriteriaId, &cop.Matter)
+
+		if err != nil {
+			panic(err)
+
+		}
+		cm = append(cm, cop)
+	}
+	opl.Close()
+
+	for _, crit := range cr {
+		for _, option := range cm {
+			if option.CriteriaId == crit.CriteriaId {
+				crit.Refermatter = option.Matter
+			}
+		}
+
+	}
+
+	for _, crit := range cr {
+		for _, option := range co {
+			if option.CriteriaId == crit.CriteriaId && option.OptVal == crit.Optval {
+				crit.Optionmatter = option.Option
+			}
+		}
+
+	}
+
+	ev.Crit = make([]*Criteria, 0)
+	for _, item := range cr {
+		ev.Crit = append(ev.Crit, &Criteria{CriteriaId: item.CriteriaId, CriteriaQs: item.CriteriaQs, Optionmatter: item.Optionmatter, Optval: item.Optval, Refermatter: item.Refermatter})
+	}
+
+	opl, er = db.Query("select meet_time from meet where competency_evaluation_id=\"" + params["competencyevaluationid"] + "\"and need_meet=0 and evaluation_type=\"faculty\";")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	for opl.Next() {
+
+		err := opl.Scan(&ev.Meet)
+
+		if err != nil {
+			panic(err)
+
+		}
+
+	}
+	opl.Close()
+
+	json.NewEncoder(w).Encode(ev)
+
+}
 func postform(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -231,8 +313,8 @@ func postform(w http.ResponseWriter, r *http.Request) {
 		}
 		fd.Close()
 	}
-
-	a := "call insertmeettime(\"" + feedback.Meet + "\",\"" + params["competencyevaluationid"] + "\");"
+	flty := "faculty"
+	a := "call insertmeettime(\"" + feedback.Meet + "\",\"" + params["competencyevaluationid"] + "\",\"" + flty + "\");"
 	fd, er := db.Query(a)
 	if er != nil {
 
