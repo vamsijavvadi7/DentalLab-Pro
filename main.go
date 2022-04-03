@@ -24,8 +24,6 @@ type User struct {
 	Role     string
 }
 
-
-
 func main() {
 
 	r := mux.NewRouter()
@@ -48,20 +46,98 @@ func main() {
 	r.HandleFunc("/competencyevaluations/facultyview/competencyid/{competencyid}/competencyevaluationid/{competencyevaluationid}", getfeedbackformwithsubmissiondetails).Methods("GET")
 
 	r.HandleFunc("/facultytodo/meet/{email}", getfacultytodomeet).Methods("GET")
-r.HandleFunc("/facultytodo/postmeet", postfacultytodomeet).Methods("POST")
-
+	r.HandleFunc("/facultytodo/postmeet", postfacultytodomeet).Methods("POST")
 
 	r.HandleFunc("/facultytodo/reference/{email}", facultytodoreference).Methods("GET")
+	r.HandleFunc("/facultytodo/postrefernce", postfacultytodoreference).Methods("POST")
 	r.HandleFunc("/studentdashboard/details/studentmail/{email}", studentdashboarddetails).Methods("GET")
 	r.HandleFunc("/studentdashboard/specialities", getspecnames).Methods("GET")
 	r.HandleFunc("/studentdashboard/email/{email}/speciality/{speciality}", getstudentdashboardspecialitieswithcompetencies).Methods("GET")
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
 }
+
+func postfacultytodoreference(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+	type Matter struct {
+		Comeval_id  int    `json:"competencyevaluationid"`
+		Refermatter string `json:"refermatter"`
+		Criid       int    `json:"criteriaid"`
+	}
+
+	res := new(Matter)
+	erro := json.NewDecoder(r.Body).Decode(&res)
+	if erro != nil {
+		panic(erro.Error())
+	}
+
+	a := "update reference set reference_matter=\"" + res.Refermatter + "\",need_link=0 where competency_evaluation_id=\"" + strconv.Itoa(res.Comeval_id) + "\" and evaluation_type=\"self\" and criteria_id=\"" + strconv.Itoa(res.Criid) + "\";"
+	fd, er := db.Query(a)
+	if er != nil {
+
+		panic(er.Error())
+	}
+	fd.Close()
+
+	json.NewEncoder(w).Encode(res)
+
+}
+func facultytodoreference(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+
+	type Studentstomeet struct {
+		Name                    string `json:"studentname"`
+		Competency_Name         string `json:"competencyname"`
+		Student_id              string `json:"studentid"`
+		CriteriaQS              string `json:"criteriaqs"`
+		Criid                  int `json:"criteriaid"`
+		CompetencyEvaluation_id int    `json:"CompetencyEvaluation_id"`
+	}
+	sts := make([]*Studentstomeet, 0)
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+
+	de, er := db.Query("CALL todoreferenceforfaculty(\"" + params["email"] + "\");")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	for de.Next() {
+		st := new(Studentstomeet)
+		err := de.Scan(&st.Competency_Name, &st.Student_id, &st.CriteriaQS, &st.CompetencyEvaluation_id, &st.Name, &st.Criid)
+
+		if err != nil {
+			panic(err)
+
+		}
+		sts = append(sts, st)
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode(sts)
+
+}
+
 func postfacultytodomeet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
-	
 
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
@@ -70,8 +146,8 @@ func postfacultytodomeet(w http.ResponseWriter, r *http.Request) {
 
 	defer db.Close()
 	type Meet struct {
-		Comeval_id int `json:"competencyevaluationid"`
-		Meet string `json:"meettime"`
+		Comeval_id int    `json:"competencyevaluationid"`
+		Meet       string `json:"meettime"`
 	}
 
 	res := new(Meet)
@@ -80,15 +156,13 @@ func postfacultytodomeet(w http.ResponseWriter, r *http.Request) {
 		panic(erro.Error())
 	}
 
-a := "update meet set meet_time=\""+res.Meet+"\",need_meet=0 where competency_evaluation_id=\""+strconv.Itoa(res.Comeval_id)+"\" and evaluation_type=\"self\";"
+	a := "update meet set meet_time=\"" + res.Meet + "\",need_meet=0 where competency_evaluation_id=\"" + strconv.Itoa(res.Comeval_id) + "\" and evaluation_type=\"self\";"
 	fd, er := db.Query(a)
 	if er != nil {
 
 		panic(er.Error())
 	}
 	fd.Close()
-
-	
 
 	json.NewEncoder(w).Encode(res)
 
@@ -331,49 +405,6 @@ func studentdashboarddetails(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func facultytodoreference(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
-
-	type Studentstomeet struct {
-		Name                    string `json:"studentname"`
-		Competency_Name         string `json:"competencyname"`
-		Student_id              string `json:"studentid"`
-		CriteriaQS              string `json:"criteriaqs"`
-		CompetencyEvaluation_id int    `json:"CompetencyEvaluation_id"`
-	}
-	sts := make([]*Studentstomeet, 0)
-
-	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
-	if err != nil {
-		panic(err.Error())
-	}
-
-	defer db.Close()
-
-	de, er := db.Query("CALL todoreferenceforfaculty(\"" + params["email"] + "\");")
-	if er != nil {
-
-		panic(er.Error())
-
-	}
-
-	for de.Next() {
-		st := new(Studentstomeet)
-		err := de.Scan(&st.Competency_Name, &st.Student_id, &st.CriteriaQS, &st.CompetencyEvaluation_id, &st.Name)
-
-		if err != nil {
-			panic(err)
-
-		}
-		sts = append(sts, st)
-	}
-	de.Close()
-
-	json.NewEncoder(w).Encode(sts)
-
-}
 func getfacultytodomeet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -562,7 +593,6 @@ func getfacultytodomeet(w http.ResponseWriter, r *http.Request) {
 // 	json.NewEncoder(w).Encode(cr)
 
 // }
-
 
 func getfeedbackformwithsubmissiondetails(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
