@@ -55,11 +55,54 @@ func main() {
 	r.HandleFunc("/studentdashboard/email/{email}/speciality/{speciality}", getstudentdashboardspecialitieswithcompetencies).Methods("GET")
 	r.HandleFunc("/competencyevaluations/self/competencyevaluationid/{competencyevaluationid}", postselfform).Methods("POST")
 	r.HandleFunc("/competencyevaluations/selfview/competencyid/{competencyid}/competencyevaluationid/{competencyevaluationid}", getselffeedbackformwithsubmissiondetails).Methods("GET")
-
+	r.HandleFunc("/studenttodo/meet/{email}", getstudenttodomeet).Methods("GET")
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
 }
 
+func getstudenttodomeet(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+
+	type Facultytomeet struct {
+		Name                    string `json:"facultyname"`
+		Competency_Name         string `json:"competencyname"`
+		Meet                    string `json:"meettime"`
+		CompetencyEvaluation_id int    `json:"CompetencyEvaluation_id"`
+		Evaluation_type         string `json:"evaluationtype"`
+	}
+	sts := make([]*Facultytomeet, 0)
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+
+	de, er := db.Query("CALL todomeetforfaculty(\"" + params["email"] + "\");")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	for de.Next() {
+		st := new(Facultytomeet)
+		err := de.Scan(&st.Meet, &st.Evaluation_type, &st.Competency_Name, &st.CompetencyEvaluation_id, &st.Name)
+
+		if err != nil {
+			panic(err)
+
+		}
+		sts = append(sts, st)
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode(sts)
+
+}
 func getselffeedbackformwithsubmissiondetails(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Gets params
