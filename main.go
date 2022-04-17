@@ -56,10 +56,56 @@ func main() {
 	r.HandleFunc("/competencyevaluations/self/competencyevaluationid/{competencyevaluationid}", postselfform).Methods("POST")
 	r.HandleFunc("/competencyevaluations/selfview/competencyid/{competencyid}/competencyevaluationid/{competencyevaluationid}", getselffeedbackformwithsubmissiondetails).Methods("GET")
 	r.HandleFunc("/studenttodo/meet/{email}", getstudenttodomeet).Methods("GET")
+		r.HandleFunc("/studenttodo/reference/{email}", getstudenttodoreference).Methods("GET")
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
 }
 
+func getstudenttodoreference(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+
+	type Facultyreference struct {
+		Name                    string `json:"facultyname"`
+		Competency_Name         string `json:"competencyname"`
+		Reference_matter                string `json:"reference"`
+		CompetencyEvaluation_id int    `json:"competencyevaluation_id"`
+		Evaluation_type         string `json:"evaluationtype"`
+		Criteria_id int `json:"criteriaid"`
+		Criteria_qs string `json:"criteriaqs"`
+	}
+	sts := make([]*Facultyreference, 0)
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+
+	de, er := db.Query("CALL `todoreferenceforstudent`(\"" + params["email"] + "\");")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	for de.Next() {
+		st := new(Facultyreference)
+		err := de.Scan(&st.Reference_matter, &st.Evaluation_type, &st.Criteria_id, &st.Criteria_qs,&st.Competency_Name,&st.CompetencyEvaluation_id,&st.Name)
+
+		if err != nil {
+			panic(err)
+
+		}
+		sts = append(sts, st)
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode(sts)
+
+}
 func getstudenttodomeet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -69,7 +115,7 @@ func getstudenttodomeet(w http.ResponseWriter, r *http.Request) {
 		Name                    string `json:"facultyname"`
 		Competency_Name         string `json:"competencyname"`
 		Meet                    string `json:"meettime"`
-		CompetencyEvaluation_id int    `json:"CompetencyEvaluation_id"`
+		CompetencyEvaluation_id int    `json:"competencyevaluation_id"`
 		Evaluation_type         string `json:"evaluationtype"`
 	}
 	sts := make([]*Facultytomeet, 0)
@@ -81,7 +127,7 @@ func getstudenttodomeet(w http.ResponseWriter, r *http.Request) {
 
 	defer db.Close()
 
-	de, er := db.Query("CALL todomeetforfaculty(\"" + params["email"] + "\");")
+	de, er := db.Query("CALL `todomeetforstudent`(\"" + params["email"] + "\");")
 	if er != nil {
 
 		panic(er.Error())
@@ -255,7 +301,7 @@ func getselffeedbackformwithsubmissiondetails(w http.ResponseWriter, r *http.Req
 		Matter     string
 	}
 	cm := make([]*CriteriaMatter, 0)
-	opl, er := db.Query("select criteria_id,IFNULL(reference_matter,\"not given\") from reference where evaluation_type=\"self\" and competency_evaluation_id=\"" + params["competencyevaluationid"] + "\";")
+	opl, er := db.Query("select criteria_id,IFNULL(reference_matter,\"not given till now\") from reference where evaluation_type=\"self\" and competency_evaluation_id=\"" + params["competencyevaluationid"] + "\";")
 	if er != nil {
 
 		panic(er.Error())
@@ -297,7 +343,7 @@ func getselffeedbackformwithsubmissiondetails(w http.ResponseWriter, r *http.Req
 		ev.Crit = append(ev.Crit, &Criteria{CriteriaId: item.CriteriaId, CriteriaQs: item.CriteriaQs, Optionmatter: item.Optionmatter, Optval: item.Optval, Refermatter: item.Refermatter})
 	}
 
-	opl, er = db.Query("select IFNULL(meet_time,\"not given\") from meet where competency_evaluation_id=\"" + params["competencyevaluationid"] + "\" and evaluation_type=\"self\";")
+	opl, er = db.Query("select IFNULL(meet_time,\"not given till now\") from meet where competency_evaluation_id=\"" + params["competencyevaluationid"] + "\" and evaluation_type=\"self\";")
 	if er != nil {
 
 		panic(er.Error())
@@ -328,7 +374,7 @@ func postselfform(w http.ResponseWriter, r *http.Request) {
 	type Form struct {
 		Criteriaid      int `json:"criteriaid"`
 		Score           int `json:"score"`
-		Needrefermatter int `json:"needrefmatter"`
+		Needrefermatter int `json:"needrefermatter"`
 	}
 	type Formwithmeet struct {
 		CDetails []*Form `json:"criterias"`
@@ -350,14 +396,24 @@ func postselfform(w http.ResponseWriter, r *http.Request) {
 
 	for _, item := range feedback.CDetails {
 
-		a := "call postselfform(\"" + strconv.Itoa(item.Criteriaid) + "\",\"" + params["competencyevaluationid"] + "\",\"" + strconv.Itoa(item.Score) + "\",\"" + strconv.Itoa(item.Needrefermatter) + "\");"
+		a := "call postselfform(\"" + strconv.Itoa(item.Criteriaid) + "\",\"" + params["competencyevaluationid"] + "\",\"" + strconv.Itoa(item.Score) + "\");"
 		fd, er := db.Query(a)
 		if er != nil {
 
 			panic(er.Error())
 		}
 		fd.Close()
+		if(item.Needrefermatter!=0){
+			a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`reference`(`evaluation_type`,`need_link`,`criteria_id`,`competency_evaluation_id`) VALUES(\"self\",\""+strconv.Itoa(item.Needrefermatter)+"\",\"" + strconv.Itoa(item.Criteriaid) + "\",\""+ params["competencyevaluationid"]+"\");"
+		ed, er := db.Query(a)
+		if er != nil {
+
+			panic(er.Error())
+		}
+		ed.Close()
+		}
 	}
+if(feedback.NeedMeet!=0){
 
 	a := "call insertrequestmeettime(\"" + strconv.Itoa(feedback.NeedMeet) + "\",\"" + params["competencyevaluationid"] + "\");"
 	fd, er := db.Query(a)
@@ -366,7 +422,7 @@ func postselfform(w http.ResponseWriter, r *http.Request) {
 		panic(er.Error())
 	}
 	fd.Close()
-
+}
 	json.NewEncoder(w).Encode(feedback)
 }
 
@@ -652,7 +708,7 @@ func facultytodoreference(w http.ResponseWriter, r *http.Request) {
 		Student_id              string `json:"studentid"`
 		CriteriaQS              string `json:"criteriaqs"`
 		Criid                   int    `json:"criteriaid"`
-		CompetencyEvaluation_id int    `json:"CompetencyEvaluation_id"`
+		CompetencyEvaluation_id int    `json:"competencyevaluation_id"`
 	}
 	sts := make([]*Studentstomeet, 0)
 
@@ -727,7 +783,7 @@ func getfacultytodomeet(w http.ResponseWriter, r *http.Request) {
 		Name                    string `json:"studentname"`
 		Competency_Name         string `json:"competencyname"`
 		Student_id              string `json:"studentid"`
-		CompetencyEvaluation_id int    `json:"CompetencyEvaluation_id"`
+		CompetencyEvaluation_id int    `json:"competencyevaluation_id"`
 	}
 	sts := make([]*Studentstomeet, 0)
 
@@ -1154,15 +1210,34 @@ func postform(w http.ResponseWriter, r *http.Request) {
 
 	for _, item := range feedback.CDetails {
 
-		a := "call postform(\"" + strconv.Itoa(item.Criteriaid) + "\",\"" + params["competencyevaluationid"] + "\",\"" + strconv.Itoa(item.Score) + "\",\"" + item.Refermatter + "\");"
+		a := "call postform(\"" + strconv.Itoa(item.Criteriaid) + "\",\"" + params["competencyevaluationid"] + "\",\"" + strconv.Itoa(item.Score) + "\");"
 		fd, er := db.Query(a)
 		if er != nil {
 
 			panic(er.Error())
 		}
 		fd.Close()
+	if(item.Refermatter!=""){
+	a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`reference`(`evaluation_type`,`reference_matter`,`criteria_id`,`competency_evaluation_id`) VALUES(\"faculty\",\""+item.Refermatter+"\",\"" + strconv.Itoa(item.Criteriaid) + "\",\""+ params["competencyevaluationid"]+"\");"
+	ed, er := db.Query(a)
+	if er != nil {
+
+		panic(er.Error())
+	}
+	ed.Close()
+	}
+
+
+
+
+
+
+
+
+
 	}
 	flty := "faculty"
+	if(feedback.Meet!=""){
 	a := "call insertmeettime(\"" + feedback.Meet + "\",\"" + params["competencyevaluationid"] + "\",\"" + flty + "\");"
 	fd, er := db.Query(a)
 	if er != nil {
@@ -1170,7 +1245,7 @@ func postform(w http.ResponseWriter, r *http.Request) {
 		panic(er.Error())
 	}
 	fd.Close()
-
+	}
 	json.NewEncoder(w).Encode(feedback)
 }
 
