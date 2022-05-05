@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	
+	//"fmt"
 
 	"log"
 	"net/http"
@@ -56,9 +56,125 @@ func main() {
 	r.HandleFunc("/competencyevaluations/self/competencyevaluationid/{competencyevaluationid}", postselfform).Methods("POST")
 	r.HandleFunc("/competencyevaluations/selfview/competencyid/{competencyid}/competencyevaluationid/{competencyevaluationid}", getselffeedbackformwithsubmissiondetails).Methods("GET")
 	r.HandleFunc("/studenttodo/meet/{email}", getstudenttodomeet).Methods("GET")
-		r.HandleFunc("/studenttodo/reference/{email}", getstudenttodoreference).Methods("GET")
+	r.HandleFunc("/studenttodo/reference/{email}", getstudenttodoreference).Methods("GET")
+	r.HandleFunc("/admin/studentadd/batch/{batchname}", createstudent).Methods("POST")
+	r.HandleFunc("/admin/faculty/insert", createfaculty).Methods("POST")
+	r.HandleFunc("/admin/insert", createadmin).Methods("POST")
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
+}
+
+func createadmin(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+	type Admindetails struct {
+	
+		First_name string `json:"adminfirstname"`
+		Last_name  string `json:"adminlastname"`
+		Password   string `json:"password"`
+		Phone      string `json:"phonenumber"`
+		Email      string `json:"mail"`
+	}
+
+	res := new(Admindetails)
+	erro := json.NewDecoder(r.Body).Decode(&res)
+	if erro != nil {
+		panic(erro.Error())
+	}
+
+	a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`person`(`First_Name`,`Last_Name`,`Password`,`Role`,`Phone`,`Email`) VALUES (\"" + res.First_name + "\" , \"" + res.Last_name + "\", \"" + res.Password + "\", \"admin\" , \"" + res.Phone + "\", \"" + res.Email + "\")";
+	fd, er := db.Query(a)
+	if er != nil {
+
+		panic(er.Error())
+	}
+	fd.Close()
+
+	json.NewEncoder(w).Encode(res)
+}
+func createfaculty(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+	type Facultydetails struct {
+		Specialityname string `json:"specialityname"`
+		F_id           string `json:"facultyid"`
+		F_name         string `json:"facultyfirstname"`
+		L_name         string `json:"facultylastname"`
+		Pass           string `json:"password"`
+		Ph             string `json:"phonenumber"`
+		Mail           string `json:"mail"`
+	}
+
+	res := new(Facultydetails)
+	erro := json.NewDecoder(r.Body).Decode(&res)
+	if erro != nil {
+		panic(erro.Error())
+	}
+	
+	a := "CALL `heroku_ae8d9f2c5bc1ed0`.`insertFaculty`(\"" + res.Specialityname + "\", \"" + res.F_id + "\" , \"" + res.F_name + "\", \"" + res.L_name + "\", \"" + res.Pass + "\",\"faculty\" , \"" + res.Ph + "\", \"" + res.Mail + "\")"
+	fd, er := db.Query(a)
+	if er != nil {
+
+		panic(er.Error())
+	}
+	fd.Close()
+
+	json.NewEncoder(w).Encode(res)
+
+} 
+
+
+func createstudent(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+
+	type Details struct {
+		St_id         string   `json:"studentid"`
+		F_name      string `json:"firstname"`
+		L_name         string   `json:"lastname"`
+		Pass        string   `json:"password"`
+		Role      string `json:"role"`
+		Ph         string   `json:"phonenum"`
+		Mail      string `json:"email"`
+	}	
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+
+	var detail Details
+	erro := json.NewDecoder(r.Body).Decode(&detail)
+	if erro != nil {
+		panic(erro.Error())
+	}
+
+	
+		a := "call `insertStudent`(\"" +params["batchname"] + "\",\""  +detail.St_id + "\",\"" + detail.F_name+ "\",\""  +detail.L_name + "\",\""+detail.Pass + "\",\""+ detail.Role + "\",\""+detail.Ph+ "\",\""+detail.Mail + "\");"
+		fd, er := db.Query(a)
+		if er != nil {
+
+			panic(er.Error())
+		}
+		fd.Close()
+	
+	json.NewEncoder(w).Encode(detail)
 }
 
 func getstudenttodoreference(w http.ResponseWriter, r *http.Request) {
@@ -69,11 +185,11 @@ func getstudenttodoreference(w http.ResponseWriter, r *http.Request) {
 	type Facultyreference struct {
 		Name                    string `json:"facultyname"`
 		Competency_Name         string `json:"competencyname"`
-		Reference_matter                string `json:"reference"`
+		Reference_matter        string `json:"reference"`
 		CompetencyEvaluation_id int    `json:"competencyevaluation_id"`
 		Evaluation_type         string `json:"evaluationtype"`
-		Criteria_id int `json:"criteriaid"`
-		Criteria_qs string `json:"criteriaqs"`
+		Criteria_id             int    `json:"criteriaid"`
+		Criteria_qs             string `json:"criteriaqs"`
 	}
 	sts := make([]*Facultyreference, 0)
 
@@ -93,7 +209,7 @@ func getstudenttodoreference(w http.ResponseWriter, r *http.Request) {
 
 	for de.Next() {
 		st := new(Facultyreference)
-		err := de.Scan(&st.Reference_matter, &st.Evaluation_type, &st.Criteria_id, &st.Criteria_qs,&st.Competency_Name,&st.CompetencyEvaluation_id,&st.Name)
+		err := de.Scan(&st.Reference_matter, &st.Evaluation_type, &st.Criteria_id, &st.Criteria_qs, &st.Competency_Name, &st.CompetencyEvaluation_id, &st.Name)
 
 		if err != nil {
 			panic(err)
@@ -403,26 +519,26 @@ func postselfform(w http.ResponseWriter, r *http.Request) {
 			panic(er.Error())
 		}
 		fd.Close()
-		if(item.Needrefermatter!=0){
-			a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`reference`(`evaluation_type`,`need_link`,`criteria_id`,`competency_evaluation_id`) VALUES(\"self\",\""+strconv.Itoa(item.Needrefermatter)+"\",\"" + strconv.Itoa(item.Criteriaid) + "\",\""+ params["competencyevaluationid"]+"\");"
-		ed, er := db.Query(a)
+		if item.Needrefermatter != 0 {
+			a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`reference`(`evaluation_type`,`need_link`,`criteria_id`,`competency_evaluation_id`) VALUES(\"self\",\"" + strconv.Itoa(item.Needrefermatter) + "\",\"" + strconv.Itoa(item.Criteriaid) + "\",\"" + params["competencyevaluationid"] + "\");"
+			ed, er := db.Query(a)
+			if er != nil {
+
+				panic(er.Error())
+			}
+			ed.Close()
+		}
+	}
+	if feedback.NeedMeet != 0 {
+
+		a := "call insertrequestmeettime(\"" + strconv.Itoa(feedback.NeedMeet) + "\",\"" + params["competencyevaluationid"] + "\");"
+		fd, er := db.Query(a)
 		if er != nil {
 
 			panic(er.Error())
 		}
-		ed.Close()
-		}
+		fd.Close()
 	}
-if(feedback.NeedMeet!=0){
-
-	a := "call insertrequestmeettime(\"" + strconv.Itoa(feedback.NeedMeet) + "\",\"" + params["competencyevaluationid"] + "\");"
-	fd, er := db.Query(a)
-	if er != nil {
-
-		panic(er.Error())
-	}
-	fd.Close()
-}
 	json.NewEncoder(w).Encode(feedback)
 }
 
@@ -1217,34 +1333,26 @@ func postform(w http.ResponseWriter, r *http.Request) {
 			panic(er.Error())
 		}
 		fd.Close()
-	if(item.Refermatter!=""){
-	a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`reference`(`evaluation_type`,`reference_matter`,`criteria_id`,`competency_evaluation_id`) VALUES(\"faculty\",\""+item.Refermatter+"\",\"" + strconv.Itoa(item.Criteriaid) + "\",\""+ params["competencyevaluationid"]+"\");"
-	ed, er := db.Query(a)
-	if er != nil {
+		if item.Refermatter != "" {
+			a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`reference`(`evaluation_type`,`reference_matter`,`criteria_id`,`competency_evaluation_id`) VALUES(\"faculty\",\"" + item.Refermatter + "\",\"" + strconv.Itoa(item.Criteriaid) + "\",\"" + params["competencyevaluationid"] + "\");"
+			ed, er := db.Query(a)
+			if er != nil {
 
-		panic(er.Error())
-	}
-	ed.Close()
-	}
-
-
-
-
-
-
-
-
+				panic(er.Error())
+			}
+			ed.Close()
+		}
 
 	}
 	flty := "faculty"
-	if(feedback.Meet!=""){
-	a := "call insertmeettime(\"" + feedback.Meet + "\",\"" + params["competencyevaluationid"] + "\",\"" + flty + "\");"
-	fd, er := db.Query(a)
-	if er != nil {
+	if feedback.Meet != "" {
+		a := "call insertmeettime(\"" + feedback.Meet + "\",\"" + params["competencyevaluationid"] + "\",\"" + flty + "\");"
+		fd, er := db.Query(a)
+		if er != nil {
 
-		panic(er.Error())
-	}
-	fd.Close()
+			panic(er.Error())
+		}
+		fd.Close()
 	}
 	json.NewEncoder(w).Encode(feedback)
 }
@@ -1576,6 +1684,7 @@ func getprofile(w http.ResponseWriter, r *http.Request) {
 		Phone string `json:"phone"`
 		Email string `json:"email"`
 		Batch string `json:"batch"`
+		Regno string `json:"regno"`
 	}
 
 	pd := make([]*Persondetails, 0)
@@ -1598,7 +1707,28 @@ func getprofile(w http.ResponseWriter, r *http.Request) {
 
 			for row.Next() {
 
-				err := row.Scan(&person.Batch)
+				err := row.Scan(&person.Batch, &person.Regno)
+				if err != nil {
+					panic(err)
+				}
+
+			}
+			row.Close()
+
+		}
+		if person.Role == "faculty" {
+
+			row, err := db.Query("select f.faculty_id from person p,faculty f where p.email=\"" + params["email"] + "\" and f.person_id=p.person_id;")
+
+			if err != nil {
+
+				panic(err.Error())
+
+			}
+
+			for row.Next() {
+
+				err := row.Scan(&person.Regno)
 				if err != nil {
 					panic(err)
 				}
@@ -1608,9 +1738,8 @@ func getprofile(w http.ResponseWriter, r *http.Request) {
 
 		}
 		pd = append(pd, person)
+		defer rows.Close()
 	}
-	defer rows.Close()
-
 	json.NewEncoder(w).Encode(pd)
 
 }
