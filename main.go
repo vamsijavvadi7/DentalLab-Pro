@@ -58,7 +58,7 @@ func main() {
 	r.HandleFunc("/competencyevaluations/{competencyevaluationid}", deletecompetencyevaluation).Methods("DELETE")
 	r.HandleFunc("/studenttodo/meet/{email}", getstudenttodomeet).Methods("GET")
 	r.HandleFunc("/studenttodo/reference/{email}", getstudenttodoreference).Methods("GET")
-		r.HandleFunc("/admin/student/getbacthnames", getbatches).Methods("GET")
+	r.HandleFunc("/admin/student/getbacthnames", getbatches).Methods("GET")
 	r.HandleFunc("/admin/student/getall/{batchname}", getstudents).Methods("GET")
 
 	r.HandleFunc("/admin/student/addcsvfile/{batchname}", addbulkstudents).Methods("POST")
@@ -76,12 +76,248 @@ func main() {
 	r.HandleFunc("/admin/delete/{personid}", deleteadmin).Methods("DELETE")
 	r.HandleFunc("/admin/addcsvfile", addbulkAdmin).Methods("POST")
 	r.HandleFunc("/admin/speciality/add/{specialityname}", createspeciality).Methods("POST")
-	r.HandleFunc("/admin/speciality/update/{specialityname}/{specialityid}", updatespeciality).Methods("PUT")
-    
+	r.HandleFunc("/admin/speciality/update/{newspecialityname}/{specialityid}", updatespeciality).Methods("PUT")
+	r.HandleFunc("/admin/speciality/competency/add/{specialityname}", createcompetency).Methods("POST")
 
-
+	
+	r.HandleFunc("/admin/speciality/competency/getcompetency/{competencyid}", getcompetency).Methods("GET")
+    r.HandleFunc("/admin/speciality/competency/update", updatecompetency).Methods("PUT")
+	r.HandleFunc("/profile/update/email/{email}", updateprofile).Methods("PUT")
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
+}
+
+func updateprofile(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+
+	type Details struct {
+		St_id  string `json:"regno"`
+		F_name string `json:"firstname"`
+		L_name string `json:"lastname"`
+		Ph     string `json:"phonenum"`
+		Role string `json:"role"`
+	}
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+
+	var detail Details
+	erro := json.NewDecoder(r.Body).Decode(&detail)
+	if erro != nil {
+		panic(erro.Error())
+	}
+
+	a := "call `updateprofile`(\"" + params["email"] + "\",\"" + detail.F_name + "\",\"" + detail.L_name + "\",\"" + detail.Ph + "\",\"" + detail.St_id+ "\",\""  + detail.Role+"\");"
+	fd, er := db.Query(a)
+	if er != nil {
+
+		panic(er.Error())
+	}
+	fd.Close()
+
+	json.NewEncoder(w).Encode(detail)
+}
+
+func updatecompetency(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	
+	defer db.Close()
+	type Criteria struct {
+		Criteriaid int `json:"criteriaid"`
+		CriteriaQs string `json:"criteriaqs"`
+		Option0    string `json:"option0"`
+		Option1    string `json:"option1"`
+		Option2    string `json:"option2"`
+	}
+	type Competency struct {
+		Competencyid int `json:"competencyid"`
+		CompName string      `json:"competencyname"`
+		CriD     []*Criteria `json:"criteriadetails"`
+	}
+
+	var comp Competency
+	erro := json.NewDecoder(r.Body).Decode(&comp)
+	if erro != nil {
+		panic(erro.Error())
+	}
+
+	de, er := db.Query("CALL `updatecompetency`(\"" + comp.CompName + "\",\"" + strconv.Itoa(comp.Competencyid) + "\");")
+	if er != nil {
+
+		panic(er.Error())
+	}
+	de.Close()
+	for _, item := range comp.CriD {
+
+		a := "call updatecriteria(\"" + strconv.Itoa(item.Criteriaid) + "\",\"" + item.CriteriaQs + "\",\"" + item.Option0 + "\",\"" + item.Option1 + "\",\"" + item.Option2 + "\");"
+		fd, er := db.Query(a)
+		if er != nil {
+
+			panic(er.Error())
+		}
+		fd.Close()
+
+	}
+	json.NewEncoder(w).Encode(comp)
+}
+
+func getcompetency(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r) // Gets params
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+
+	type Criteria struct {
+		CriteriaId int    `json:"criteiaid"`
+		CriteriaQs string `json:"criteriaqs"`
+		Option0    string `json:"option0"`
+		Option1    string `json:"option1"`
+		Option2    string `json:"option2"`
+	}
+	type CriteriaOptions struct {
+		CriteriaId int    `json:"criteiaid"`
+		Option     string `json:"option"`
+		OptVal     int
+	}
+	type Competency struct {
+		Competency_Name string      `json:"competencyname"`
+		Competency_id   int         `json:"competencyid"`
+		Crit            []*Criteria `json:"criteriadetails"`
+	}
+
+	ev := new(Competency)
+
+	cr := make([]*Criteria, 0)
+	cri, er := db.Query("call getcriteriasofcompetency(\"" + params["competencyid"] + "\")")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	for cri.Next() {
+		cop := new(Criteria)
+		err := cri.Scan(&cop.CriteriaId, &cop.CriteriaQs)
+
+		if err != nil {
+			panic(err)
+
+		}
+		cr = append(cr, cop)
+	}
+	cri.Close()
+
+	co := make([]*CriteriaOptions, 0)
+	opt, er := db.Query("call getcriteriaoptionsofcompetency(\"" + params["competencyid"] + "\")")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	for opt.Next() {
+		cop := new(CriteriaOptions)
+		err := opt.Scan(&cop.CriteriaId, &cop.Option, &cop.OptVal)
+
+		if err != nil {
+			panic(err)
+
+		}
+		co = append(co, cop)
+	}
+	opt.Close()
+	for _, crit := range cr {
+		for _, option := range co {
+			if option.CriteriaId == crit.CriteriaId && option.OptVal == 0 {
+				crit.Option0 = option.Option
+			} else if option.CriteriaId == crit.CriteriaId && option.OptVal == 1 {
+				crit.Option1 = option.Option
+			} else if option.CriteriaId == crit.CriteriaId && option.OptVal == 2 {
+				crit.Option2 = option.Option
+			}
+		}
+
+	}
+
+	ev.Crit = cr
+	op, er := db.Query("select Competency_Name,Competency_id from competency where Competency_id=\"" + params["competencyid"] + "\";")
+
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+	for op.Next() {
+
+		err := op.Scan(&ev.Competency_Name, &ev.Competency_id)
+
+		if err != nil {
+			panic(err)
+
+		}
+	}
+	json.NewEncoder(w).Encode(ev)
+
+}
+func createcompetency(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	params := mux.Vars(r)
+	defer db.Close()
+	type Criteria struct {
+		CriteriaQs string `json:"criteriaqs"`
+		Option0    string `json:"option0"`
+		Option1    string `json:"option1"`
+		Option2    string `json:"option2"`
+	}
+	type Competency struct {
+		CompName string      `json:"competencyname"`
+		CriD     []*Criteria `json:"criteriadetails"`
+	}
+
+	var comp Competency
+	erro := json.NewDecoder(r.Body).Decode(&comp)
+	if erro != nil {
+		panic(erro.Error())
+	}
+
+	de, er := db.Query("CALL `insertcompetency`(\"" + params["specialityname"] + "\",\"" + comp.CompName + "\");")
+	if er != nil {
+
+		panic(er.Error())
+	}
+	de.Close()
+	for _, item := range comp.CriD {
+
+		a := "call insertcriteria(\"" + params["specialityname"] + "\",\"" + comp.CompName + "\",\"" + item.CriteriaQs + "\",\"" + item.Option0 + "\",\"" + item.Option1 + "\",\"" + item.Option2 + "\");"
+		fd, er := db.Query(a)
+		if er != nil {
+
+			panic(er.Error())
+		}
+		fd.Close()
+
+	}
+	json.NewEncoder(w).Encode(comp)
 }
 
 func updatespeciality(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +330,7 @@ func updatespeciality(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	defer db.Close()
 
-	de, er := db.Query("update speciality set speciality_name=\"" + params["specialityname"] + "\" where speciality_id=\"" + params["specialityid"] + "\";")
+	de, er := db.Query("update speciality set speciality_name=\"" + params["newspecialityname"] + "\" where speciality_id=\"" + params["specialityid"] + "\";")
 	if er != nil {
 
 		panic(er.Error())
@@ -713,7 +949,6 @@ func getstudents(w http.ResponseWriter, r *http.Request) {
 func getbatches(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
-	
 
 	type Batchdetails struct {
 		Batch    string `json:"batch_name"`
