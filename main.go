@@ -58,6 +58,7 @@ func main() {
 	r.HandleFunc("/competencyevaluations/{competencyevaluationid}", deletecompetencyevaluation).Methods("DELETE")
 	r.HandleFunc("/studenttodo/meet/{email}", getstudenttodomeet).Methods("GET")
 	r.HandleFunc("/studenttodo/reference/{email}", getstudenttodoreference).Methods("GET")
+		r.HandleFunc("/admin/student/getbacthnames", getbatches).Methods("GET")
 	r.HandleFunc("/admin/student/getall/{batchname}", getstudents).Methods("GET")
 
 	r.HandleFunc("/admin/student/addcsvfile/{batchname}", addbulkstudents).Methods("POST")
@@ -697,6 +698,45 @@ func getstudents(w http.ResponseWriter, r *http.Request) {
 		st := new(Studentdetails)
 
 		err := de.Scan(&st.Firstname, &st.Lastname, &st.Password, &st.Phone, &st.Email, &st.Student_id)
+
+		if err != nil {
+			panic(err)
+
+		}
+		sts = append(sts, st)
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode(sts)
+}
+
+func getbatches(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	
+
+	type Batchdetails struct {
+		Batch    string `json:"batch_name"`
+		Batch_id int    `json:"batch_id"`
+	}
+	sts := make([]*Batchdetails, 0)
+
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+	de, er := db.Query("select *from `heroku_ae8d9f2c5bc1ed0`.batch;")
+	if er != nil {
+
+		panic(er.Error())
+
+	}
+
+	for de.Next() {
+		st := new(Batchdetails)
+		err := de.Scan(&st.Batch, &st.Batch_id)
 
 		if err != nil {
 			panic(err)
