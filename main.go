@@ -59,6 +59,7 @@ func main() {
 	r.HandleFunc("/studenttodo/meet/{email}", getstudenttodomeet).Methods("GET")
 	r.HandleFunc("/studenttodo/reference/{email}", getstudenttodoreference).Methods("GET")
 	r.HandleFunc("/admin/student/addbatch/{batchname}", addbatch).Methods("POST")
+	r.HandleFunc("/admin/student/update/{batchid}/{newbatchname}", updatebatch).Methods("PUT")
 	r.HandleFunc("/admin/student/getbacthnames", getbatches).Methods("GET")
 	r.HandleFunc("/admin/student/getall/{batchname}", getstudents).Methods("GET")
 
@@ -88,6 +89,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
 }
+
 
 func updateprofile(w http.ResponseWriter, r *http.Request) {
 
@@ -973,6 +975,26 @@ func getbatches(w http.ResponseWriter, r *http.Request) {
 	de.Close()
 
 	json.NewEncoder(w).Encode(sts)
+}
+
+func updatebatch(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	params := mux.Vars(r)
+	defer db.Close()
+
+	de, er := db.Query("UPDATE `heroku_ae8d9f2c5bc1ed0`.`batch` SET `Batch` =\""+params["newbatchname"]+"\"WHERE `Batch_id` =\""+params["batchid"]+"\";");
+	if er != nil {
+
+		panic(er.Error())
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode("added")
 }
 func addbatch(w http.ResponseWriter, r *http.Request) {
 
