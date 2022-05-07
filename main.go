@@ -58,6 +58,7 @@ func main() {
 	r.HandleFunc("/competencyevaluations/{competencyevaluationid}", deletecompetencyevaluation).Methods("DELETE")
 	r.HandleFunc("/studenttodo/meet/{email}", getstudenttodomeet).Methods("GET")
 	r.HandleFunc("/studenttodo/reference/{email}", getstudenttodoreference).Methods("GET")
+	r.HandleFunc("/admin/student/addbatch/{batchname}", addbatch).Methods("POST")
 	r.HandleFunc("/admin/student/getbacthnames", getbatches).Methods("GET")
 	r.HandleFunc("/admin/student/getall/{batchname}", getstudents).Methods("GET")
 
@@ -65,7 +66,7 @@ func main() {
 	r.HandleFunc("/admin/student/add/batch/{batchname}", createstudent).Methods("POST")
 	r.HandleFunc("/admin/student/update", updatestudent).Methods("PUT")
 	r.HandleFunc("/admin/student/delete/{personid}", deletestudent).Methods("DELETE")
-	r.HandleFunc("/admin/faculty/getall/{email}", getfaculty).Methods("GET")
+	r.HandleFunc("/admin/faculty/getall", getfaculty).Methods("GET")
 	r.HandleFunc("/admin/faculty/addcsvfile", addbulkFaculty).Methods("POST")
 	r.HandleFunc("/admin/faculty/insert", createfaculty).Methods("POST")
 	r.HandleFunc("/admin/faculty/update", updatefaculty).Methods("PUT")
@@ -83,6 +84,7 @@ func main() {
 	r.HandleFunc("/admin/speciality/competency/getcompetency/{competencyid}", getcompetency).Methods("GET")
     r.HandleFunc("/admin/speciality/competency/update", updatecompetency).Methods("PUT")
 	r.HandleFunc("/profile/update/email/{email}", updateprofile).Methods("PUT")
+		
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
 }
@@ -703,7 +705,7 @@ func addbulkFaculty(w http.ResponseWriter, r *http.Request) {
 func getfaculty(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
+	
 	type Faculty struct {
 		Person_id  int    `json:"personid"`
 		First_name string `json:"firstname"`
@@ -714,12 +716,7 @@ func getfaculty(w http.ResponseWriter, r *http.Request) {
 		Faculty_id string `json:"facultyid"`
 		Speciality string `json:"speciality"`
 	}
-	type Details struct {
-		Name    string     `json:"adminname"`
-		Mail    string     `json:"adminmail"`
-		Speci   string     `json:"speciality"`
-		AdminsD []*Faculty `json:"adminsdetails"`
-	}
+
 	sts := make([]*Faculty, 0)
 
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
@@ -747,16 +744,9 @@ func getfaculty(w http.ResponseWriter, r *http.Request) {
 		sts = append(sts, st)
 	}
 	de.Close()
-	Le := new(Details)
-	Le.AdminsD = sts
-	for _, item := range sts {
-		if item.Email == params["email"] {
-			Le.Name = item.First_name + " " + item.Last_name
-			Le.Mail = item.Email
-			Le.Speci = item.Speciality
-		}
-	}
-	json.NewEncoder(w).Encode(Le)
+	
+	
+	json.NewEncoder(w).Encode(sts)
 
 }
 func deletestudent(w http.ResponseWriter, r *http.Request) {
@@ -907,6 +897,7 @@ func getstudents(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
 	type Studentdetails struct {
+		P_id       int    `json:"personid"`
 		Firstname  string `json:"first_name"`
 		Lastname   string `json:"last_name"`
 		Password   string `json:"password"`
@@ -933,7 +924,7 @@ func getstudents(w http.ResponseWriter, r *http.Request) {
 	for de.Next() {
 		st := new(Studentdetails)
 
-		err := de.Scan(&st.Firstname, &st.Lastname, &st.Password, &st.Phone, &st.Email, &st.Student_id)
+		err := de.Scan(&st.P_id,&st.Firstname, &st.Lastname, &st.Password, &st.Phone, &st.Email, &st.Student_id)
 
 		if err != nil {
 			panic(err)
@@ -982,6 +973,25 @@ func getbatches(w http.ResponseWriter, r *http.Request) {
 	de.Close()
 
 	json.NewEncoder(w).Encode(sts)
+}
+func addbatch(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	params := mux.Vars(r)
+	defer db.Close()
+
+	de, er := db.Query("INSERT INTO `batch` (`Batch`) VALUES (\""+params["batchname"]+"\");")
+	if er != nil {
+
+		panic(er.Error())
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode("added")
 }
 func getstudenttodoreference(w http.ResponseWriter, r *http.Request) {
 
