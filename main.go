@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 
-   "fmt"
-   "encoding/csv"
+	"encoding/csv"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -55,13 +55,14 @@ func main() {
 	r.HandleFunc("/studentdashboard/email/{email}/speciality/{speciality}", getstudentdashboardspecialitieswithcompetencies).Methods("GET")
 	r.HandleFunc("/competencyevaluations/self/competencyevaluationid/{competencyevaluationid}", postselfform).Methods("POST")
 	r.HandleFunc("/competencyevaluations/selfview/competencyid/{competencyid}/competencyevaluationid/{competencyevaluationid}", getselffeedbackformwithsubmissiondetails).Methods("GET")
+	r.HandleFunc("/competencyevaluations/{competencyevaluationid}", deletecompetencyevaluation).Methods("DELETE")
 	r.HandleFunc("/studenttodo/meet/{email}", getstudenttodomeet).Methods("GET")
 	r.HandleFunc("/studenttodo/reference/{email}", getstudenttodoreference).Methods("GET")
-    r.HandleFunc("/admin/student/getall/{batchname}", getstudents).Methods("GET")
-	
+	r.HandleFunc("/admin/student/getall/{batchname}", getstudents).Methods("GET")
+
 	r.HandleFunc("/admin/student/addcsvfile/{batchname}", addbulkstudents).Methods("POST")
 	r.HandleFunc("/admin/student/add/batch/{batchname}", createstudent).Methods("POST")
-    r.HandleFunc("/admin/student/update", updatestudent).Methods("PUT")
+	r.HandleFunc("/admin/student/update", updatestudent).Methods("PUT")
 	r.HandleFunc("/admin/student/delete/{personid}", deletestudent).Methods("DELETE")
 	r.HandleFunc("/admin/faculty/getall/{email}", getfaculty).Methods("GET")
 	r.HandleFunc("/admin/faculty/addcsvfile", addbulkFaculty).Methods("POST")
@@ -70,28 +71,66 @@ func main() {
 	r.HandleFunc("/admin/faculty/delete/{personid}", deletefaculty).Methods("DELETE")
 	r.HandleFunc("/admin/getall/{email}", getAdminswithloginedadmindetails).Methods("GET")
 	r.HandleFunc("/admin/insert", createadmin).Methods("POST")
-    r.HandleFunc("/admin/update", updateadmin).Methods("PUT")
+	r.HandleFunc("/admin/update", updateadmin).Methods("PUT")
 	r.HandleFunc("/admin/delete/{personid}", deleteadmin).Methods("DELETE")
-    r.HandleFunc("/admin/addcsvfile", addbulkAdmin).Methods("POST")
+	r.HandleFunc("/admin/addcsvfile", addbulkAdmin).Methods("POST")
+	r.HandleFunc("/admin/speciality/add/{specialityname}", createspeciality).Methods("POST")
+	r.HandleFunc("/admin/speciality/update/{specialityname}/{specialityid}", updatespeciality).Methods("PUT")
+    
 
 
-
-
-	
-	
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
-} 
-func addbulkAdmin(w http.ResponseWriter, r *http.Request){
+}
+
+func updatespeciality(w http.ResponseWriter, r *http.Request) {
+
 	w.Header().Set("Content-Type", "application/json")
-   f, _, err := r.FormFile("file")
-     if err != nil {
-         fmt.Println(err)
-     }
-    defer f.Close()
- 
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	params := mux.Vars(r)
+	defer db.Close()
+
+	de, er := db.Query("update speciality set speciality_name=\"" + params["specialityname"] + "\" where speciality_id=\"" + params["specialityid"] + "\";")
+	if er != nil {
+
+		panic(er.Error())
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode("added")
+}
+
+func createspeciality(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	params := mux.Vars(r)
+	defer db.Close()
+
+	de, er := db.Query("INSERT INTO `speciality`(`Speciality_Name`) VALUES (\"" + params["specialityname"] + "\");")
+	if er != nil {
+
+		panic(er.Error())
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode("added")
+}
+func addbulkAdmin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	f, _, err := r.FormFile("file")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+
 	type Details struct {
-	
 		First_name string `json:"adminfirstname"`
 		Last_name  string `json:"adminlastname"`
 		Password   string `json:"password"`
@@ -105,30 +144,29 @@ func addbulkAdmin(w http.ResponseWriter, r *http.Request){
 
 	defer db.Close()
 
-
-    csvLines, err := csv.NewReader(f).ReadAll()
-    if err != nil {
-        fmt.Println(err)
-    }    
+	csvLines, err := csv.NewReader(f).ReadAll()
+	if err != nil {
+		fmt.Println(err)
+	}
 	sts := make([]*Details, 0)
-    for _, line := range csvLines[1:] {
-        res:= Details{
-			
-            First_name: line[0],
-			Last_name: line[1],
-			Password: line[2],
-		    Phone: line[3],
-			Email: line[4],
-			}
-	a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`person`(`First_Name`,`Last_Name`,`Password`,`Role`,`Phone`,`Email`) VALUES (\"" + res.First_name + "\" , \"" + res.Last_name + "\", \"" + res.Password + "\", \"admin\" , \"" + res.Phone + "\", \"" + res.Email + "\")";
+	for _, line := range csvLines[1:] {
+		res := Details{
+
+			First_name: line[0],
+			Last_name:  line[1],
+			Password:   line[2],
+			Phone:      line[3],
+			Email:      line[4],
+		}
+		a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`person`(`First_Name`,`Last_Name`,`Password`,`Role`,`Phone`,`Email`) VALUES (\"" + res.First_name + "\" , \"" + res.Last_name + "\", \"" + res.Password + "\", \"admin\" , \"" + res.Phone + "\", \"" + res.Email + "\")"
 		fd, er := db.Query(a)
 		if er != nil {
 
 			panic(er.Error())
 		}
 		fd.Close()
-		sts=append(sts, &res)
-    }
+		sts = append(sts, &res)
+	}
 
 	json.NewEncoder(w).Encode(sts)
 }
@@ -140,11 +178,10 @@ func deleteadmin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err.Error())
 	}
-params := mux.Vars(r)
+	params := mux.Vars(r)
 	defer db.Close()
 
-
-	de, er := db.Query("CALL `deleteAdmin`(\""+params["personid"]+"\");")
+	de, er := db.Query("CALL `deleteAdmin`(\"" + params["personid"] + "\");")
 	if er != nil {
 
 		panic(er.Error())
@@ -156,7 +193,7 @@ params := mux.Vars(r)
 func updateadmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
 		panic(err.Error())
@@ -179,7 +216,7 @@ func updateadmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	de, er := db.Query("CALL `updateadmin`(\"" + strconv.Itoa(res.PersonId) + "\",\"" + res.First_name + "\",\"" + res.Last_name + "\",\"" + res.Password + "\",\"" + res.Phone + "\",\"" + res.Email + "\");")
-	
+
 	if er != nil {
 
 		panic(er.Error())
@@ -199,7 +236,6 @@ func createadmin(w http.ResponseWriter, r *http.Request) {
 
 	defer db.Close()
 	type Admindetails struct {
-	
 		First_name string `json:"adminfirstname"`
 		Last_name  string `json:"adminlastname"`
 		Password   string `json:"password"`
@@ -213,7 +249,7 @@ func createadmin(w http.ResponseWriter, r *http.Request) {
 		panic(erro.Error())
 	}
 
-	a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`person`(`First_Name`,`Last_Name`,`Password`,`Role`,`Phone`,`Email`) VALUES (\"" + res.First_name + "\" , \"" + res.Last_name + "\", \"" + res.Password + "\", \"admin\" , \"" + res.Phone + "\", \"" + res.Email + "\")";
+	a := "INSERT INTO `heroku_ae8d9f2c5bc1ed0`.`person`(`First_Name`,`Last_Name`,`Password`,`Role`,`Phone`,`Email`) VALUES (\"" + res.First_name + "\" , \"" + res.Last_name + "\", \"" + res.Password + "\", \"admin\" , \"" + res.Phone + "\", \"" + res.Email + "\")"
 	fd, er := db.Query(a)
 	if er != nil {
 
@@ -230,18 +266,17 @@ func getAdminswithloginedadmindetails(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
 	type AdminsDetails struct {
-		PersonId				int `json:"person_id"`
-		FirstName               string `json:"first_name"`
-		LastName                string `json:"last_name"`
-		Password 				string `json:"password"`
-		Phone 					string `json:"Phone"`
-		Email 					string `json:"Email"`
+		PersonId  int    `json:"person_id"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Password  string `json:"password"`
+		Phone     string `json:"Phone"`
+		Email     string `json:"Email"`
 	}
 	type Details struct {
-		Name string    `json:"adminname"`
-		Mail string    `json:"adminmail"`
-		AdminsD        []*AdminsDetails `json:"adminsdetails"`
-		
+		Name    string           `json:"adminname"`
+		Mail    string           `json:"adminmail"`
+		AdminsD []*AdminsDetails `json:"adminsdetails"`
 	}
 	sts := make([]*AdminsDetails, 0)
 
@@ -261,7 +296,7 @@ func getAdminswithloginedadmindetails(w http.ResponseWriter, r *http.Request) {
 
 	for de.Next() {
 		st := new(AdminsDetails)
-		err := de.Scan(&st.PersonId, &st.FirstName, &st.LastName, &st.Password,&st.Phone,&st.Email)
+		err := de.Scan(&st.PersonId, &st.FirstName, &st.LastName, &st.Password, &st.Phone, &st.Email)
 
 		if err != nil {
 			panic(err)
@@ -271,14 +306,14 @@ func getAdminswithloginedadmindetails(w http.ResponseWriter, r *http.Request) {
 	}
 	de.Close()
 
-Le:=new(Details)
-Le.AdminsD=sts
-for _, item:= range sts {
-if(item.Email==params["email"]){
-	Le.Name=item.FirstName+" "+item.LastName;
-	Le.Mail=item.Email
-}
-}
+	Le := new(Details)
+	Le.AdminsD = sts
+	for _, item := range sts {
+		if item.Email == params["email"] {
+			Le.Name = item.FirstName + " " + item.LastName
+			Le.Mail = item.Email
+		}
+	}
 
 	json.NewEncoder(w).Encode(Le)
 
@@ -290,9 +325,8 @@ func deletefaculty(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err.Error())
 	}
-params := mux.Vars(r)
+	params := mux.Vars(r)
 	defer db.Close()
-
 
 	de, er := db.Query("CALL `deleteFaculty`(\"" + params["personid"] + "\");")
 	if er != nil {
@@ -315,14 +349,14 @@ func updatefaculty(w http.ResponseWriter, r *http.Request) {
 
 	defer db.Close()
 	type Facultydetails struct {
-		PersonId   int    `json:"personid"`
-		SpecialityName  string 	`json:"specialityname"`
-		FacultyId 	string `json:"facultyid"`
-		First_name string `json:"facultyfirstname"`
-		Last_name  string `json:"facultylastname"`
-		Password   string `json:"password"`
-		Phone      string `json:"phonenumber"`
-		Email      string `json:"mail"`
+		PersonId       int    `json:"personid"`
+		SpecialityName string `json:"specialityname"`
+		FacultyId      string `json:"facultyid"`
+		First_name     string `json:"facultyfirstname"`
+		Last_name      string `json:"facultylastname"`
+		Password       string `json:"password"`
+		Phone          string `json:"phonenumber"`
+		Email          string `json:"mail"`
 	}
 
 	res := new(Facultydetails)
@@ -331,7 +365,7 @@ func updatefaculty(w http.ResponseWriter, r *http.Request) {
 		panic(erro.Error())
 	}
 
-	de, er := db.Query("CALL `updateFaculty`(\"" + strconv.Itoa(res.PersonId) + "\",\"" +res.SpecialityName+ "\",\"" +res.FacultyId+ "\",\"" + res.First_name + "\",\"" + res.Last_name + "\",\"" + res.Password + "\",\"" + res.Phone + "\",\"" + res.Email + "\");")
+	de, er := db.Query("CALL `updateFaculty`(\"" + strconv.Itoa(res.PersonId) + "\",\"" + res.SpecialityName + "\",\"" + res.FacultyId + "\",\"" + res.First_name + "\",\"" + res.Last_name + "\",\"" + res.Password + "\",\"" + res.Phone + "\",\"" + res.Email + "\");")
 
 	if er != nil {
 
@@ -366,7 +400,7 @@ func createfaculty(w http.ResponseWriter, r *http.Request) {
 	if erro != nil {
 		panic(erro.Error())
 	}
-	
+
 	a := "CALL `heroku_ae8d9f2c5bc1ed0`.`insertFaculty`(\"" + res.Specialityname + "\", \"" + res.F_id + "\" , \"" + res.F_name + "\", \"" + res.L_name + "\", \"" + res.Pass + "\",\"" + res.Ph + "\", \"" + res.Mail + "\")"
 	fd, er := db.Query(a)
 	if er != nil {
@@ -377,23 +411,23 @@ func createfaculty(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(res)
 
-} 
-func addbulkFaculty(w http.ResponseWriter, r *http.Request){
+}
+func addbulkFaculty(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-   f, _, err := r.FormFile("file")
-     if err != nil {
-         fmt.Println(err)
-     }
-    defer f.Close()
- 
+	f, _, err := r.FormFile("file")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+
 	type Details struct {
-	    Speciality string `json:"speciality"`
-		F_id           string `json:"facultyid"`
-		F_name         string `json:"facultyfirstname"`
-		L_name         string `json:"facultylastname"`
-		Pass           string `json:"password"`
-		Ph             string `json:"phonenumber"`
-		Mail           string `json:"mail"`
+		Speciality string `json:"speciality"`
+		F_id       string `json:"facultyid"`
+		F_name     string `json:"facultyfirstname"`
+		L_name     string `json:"facultylastname"`
+		Pass       string `json:"password"`
+		Ph         string `json:"phonenumber"`
+		Mail       string `json:"mail"`
 	}
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
@@ -402,31 +436,30 @@ func addbulkFaculty(w http.ResponseWriter, r *http.Request){
 
 	defer db.Close()
 
-
-    csvLines, err := csv.NewReader(f).ReadAll()
-    if err != nil {
-        fmt.Println(err)
-    }    
+	csvLines, err := csv.NewReader(f).ReadAll()
+	if err != nil {
+		fmt.Println(err)
+	}
 	sts := make([]*Details, 0)
-    for _, line := range csvLines[1:] {
-        res:= Details{
+	for _, line := range csvLines[1:] {
+		res := Details{
 			Speciality: line[0],
-            F_id: line[1],
-            F_name: line[2],
-			L_name: line[3],
-			Pass: line[4],
-		    Ph: line[5],
-			Mail: line[6],
-			}
-	a := "CALL `heroku_ae8d9f2c5bc1ed0`.`insertFaculty`(\"" + res.Speciality+ "\",\"" + res.F_id + "\" , \"" + res.F_name + "\", \"" + res.L_name + "\", \"" + res.Pass + "\",\"" + res.Ph + "\", \"" + res.Mail + "\")"
+			F_id:       line[1],
+			F_name:     line[2],
+			L_name:     line[3],
+			Pass:       line[4],
+			Ph:         line[5],
+			Mail:       line[6],
+		}
+		a := "CALL `heroku_ae8d9f2c5bc1ed0`.`insertFaculty`(\"" + res.Speciality + "\",\"" + res.F_id + "\" , \"" + res.F_name + "\", \"" + res.L_name + "\", \"" + res.Pass + "\",\"" + res.Ph + "\", \"" + res.Mail + "\")"
 		fd, er := db.Query(a)
 		if er != nil {
 
 			panic(er.Error())
 		}
 		fd.Close()
-		sts=append(sts, &res)
-    }
+		sts = append(sts, &res)
+	}
 
 	json.NewEncoder(w).Encode(sts)
 }
@@ -435,21 +468,20 @@ func getfaculty(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 	type Faculty struct {
-		Person_id  int `json:"personid"`
+		Person_id  int    `json:"personid"`
 		First_name string `json:"firstname"`
 		Last_name  string `json:"lastname"`
-		Password   string   `json:"password"`
+		Password   string `json:"password"`
 		Phone      string `json:"phone"`
-		Email      string    `json:"email"`
+		Email      string `json:"email"`
 		Faculty_id string `json:"facultyid"`
 		Speciality string `json:"speciality"`
 	}
 	type Details struct {
-		Name string    `json:"adminname"`
-		Mail string    `json:"adminmail"`
-		Speci string `json:"speciality"`
-		AdminsD        []*Faculty `json:"adminsdetails"`
-		
+		Name    string     `json:"adminname"`
+		Mail    string     `json:"adminmail"`
+		Speci   string     `json:"speciality"`
+		AdminsD []*Faculty `json:"adminsdetails"`
 	}
 	sts := make([]*Faculty, 0)
 
@@ -478,15 +510,15 @@ func getfaculty(w http.ResponseWriter, r *http.Request) {
 		sts = append(sts, st)
 	}
 	de.Close()
-Le:=new(Details)
-Le.AdminsD=sts
-for _, item:= range sts {
-if(item.Email==params["email"]){
-	Le.Name=item.First_name+" "+item.Last_name;
-	Le.Mail=item.Email
-	Le.Speci=item.Speciality
-}
-}
+	Le := new(Details)
+	Le.AdminsD = sts
+	for _, item := range sts {
+		if item.Email == params["email"] {
+			Le.Name = item.First_name + " " + item.Last_name
+			Le.Mail = item.Email
+			Le.Speci = item.Speciality
+		}
+	}
 	json.NewEncoder(w).Encode(Le)
 
 }
@@ -497,11 +529,10 @@ func deletestudent(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err.Error())
 	}
-params := mux.Vars(r)
+	params := mux.Vars(r)
 	defer db.Close()
 
-
-	de, er := db.Query("CALL `deleteStudent`(\""+params["personid"]+"\");")
+	de, er := db.Query("CALL `deleteStudent`(\"" + params["personid"] + "\");")
 	if er != nil {
 
 		panic(er.Error())
@@ -513,7 +544,7 @@ params := mux.Vars(r)
 func updatestudent(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
 		panic(err.Error())
@@ -522,7 +553,7 @@ func updatestudent(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 	type Studentdetails struct {
 		PersonId   int    `json:"personid"`
-		StudentId  string 	`json:"studentid"`
+		StudentId  string `json:"studentid"`
 		First_name string `json:"studentfirstname"`
 		Last_name  string `json:"studentlastname"`
 		Password   string `json:"password"`
@@ -537,7 +568,7 @@ func updatestudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	de, er := db.Query("CALL `updateStudent`(\"" + strconv.Itoa(res.PersonId) + "\",\"" + res.StudentId + "\",\"" + res.First_name + "\",\"" + res.Last_name + "\",\"" + res.Password + "\",\"" + res.Phone + "\",\"" + res.Email + "\");")
-	
+
 	if er != nil {
 
 		panic(er.Error())
@@ -552,13 +583,13 @@ func createstudent(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
 	type Details struct {
-		St_id         string   `json:"studentid"`
-		F_name      string `json:"firstname"`
-		L_name         string   `json:"lastname"`
-		Pass        string   `json:"password"`
-		Ph         string   `json:"phonenum"`
-		Mail      string `json:"email"`
-	}	
+		St_id  string `json:"studentid"`
+		F_name string `json:"firstname"`
+		L_name string `json:"lastname"`
+		Pass   string `json:"password"`
+		Ph     string `json:"phonenum"`
+		Mail   string `json:"email"`
+	}
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
 		panic(err.Error())
@@ -572,35 +603,34 @@ func createstudent(w http.ResponseWriter, r *http.Request) {
 		panic(erro.Error())
 	}
 
-	
-		a := "call `insertStudent`(\"" +params["batchname"] + "\",\""  +detail.St_id + "\",\"" + detail.F_name+ "\",\""  +detail.L_name + "\",\""+detail.Pass + "\",\""+detail.Ph+ "\",\""+detail.Mail + "\");"
-		fd, er := db.Query(a)
-		if er != nil {
+	a := "call `insertStudent`(\"" + params["batchname"] + "\",\"" + detail.St_id + "\",\"" + detail.F_name + "\",\"" + detail.L_name + "\",\"" + detail.Pass + "\",\"" + detail.Ph + "\",\"" + detail.Mail + "\");"
+	fd, er := db.Query(a)
+	if er != nil {
 
-			panic(er.Error())
-		}
-		fd.Close()
-	
+		panic(er.Error())
+	}
+	fd.Close()
+
 	json.NewEncoder(w).Encode(detail)
 }
 
-func addbulkstudents(w http.ResponseWriter, r *http.Request){
+func addbulkstudents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-   f, _, err := r.FormFile("file")
-     if err != nil {
-         fmt.Println(err)
-     }
-    defer f.Close()
- params := mux.Vars(r)
+	f, _, err := r.FormFile("file")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+	params := mux.Vars(r)
 
 	type Details struct {
-		St_id         string   `json:"studentid"`
-		F_name      string `json:"firstname"`
-		L_name         string   `json:"lastname"`
-		Pass        string   `json:"password"`
-		Ph         string   `json:"phonenum"`
-		Mail      string `json:"email"`
-	}	
+		St_id  string `json:"studentid"`
+		F_name string `json:"firstname"`
+		L_name string `json:"lastname"`
+		Pass   string `json:"password"`
+		Ph     string `json:"phonenum"`
+		Mail   string `json:"email"`
+	}
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
 		panic(err.Error())
@@ -608,30 +638,29 @@ func addbulkstudents(w http.ResponseWriter, r *http.Request){
 
 	defer db.Close()
 
-
-    csvLines, err := csv.NewReader(f).ReadAll()
-    if err != nil {
-        fmt.Println(err)
-    }    
+	csvLines, err := csv.NewReader(f).ReadAll()
+	if err != nil {
+		fmt.Println(err)
+	}
 	sts := make([]*Details, 0)
-    for _, line := range csvLines[1:] {
-        detail := Details{
-            St_id: line[0],
-            F_name: line[1],
+	for _, line := range csvLines[1:] {
+		detail := Details{
+			St_id:  line[0],
+			F_name: line[1],
 			L_name: line[2],
-			Pass: line[3],
-		    Ph: line[4],
-			Mail: line[5],
-			}
-	a := "call `insertStudent`(\"" +params["batchname"] + "\",\""  +detail.St_id + "\",\"" + detail.F_name+ "\",\""  +detail.L_name + "\",\""+detail.Pass + "\",\""+detail.Ph+ "\",\""+detail.Mail + "\");"
+			Pass:   line[3],
+			Ph:     line[4],
+			Mail:   line[5],
+		}
+		a := "call `insertStudent`(\"" + params["batchname"] + "\",\"" + detail.St_id + "\",\"" + detail.F_name + "\",\"" + detail.L_name + "\",\"" + detail.Pass + "\",\"" + detail.Ph + "\",\"" + detail.Mail + "\");"
 		fd, er := db.Query(a)
 		if er != nil {
 
 			panic(er.Error())
 		}
 		fd.Close()
-		sts=append(sts, &detail)
-    }
+		sts = append(sts, &detail)
+	}
 
 	json.NewEncoder(w).Encode(sts)
 }
@@ -666,7 +695,7 @@ func getstudents(w http.ResponseWriter, r *http.Request) {
 
 	for de.Next() {
 		st := new(Studentdetails)
-	
+
 		err := de.Scan(&st.Firstname, &st.Lastname, &st.Password, &st.Phone, &st.Email, &st.Student_id)
 
 		if err != nil {
@@ -767,6 +796,27 @@ func getstudenttodomeet(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(sts)
 
 }
+
+func deletecompetencyevaluation(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	params := mux.Vars(r)
+	defer db.Close()
+
+	de, er := db.Query("CALL `deletecompetencyevaluation`(\"" + params["competencyevaluationid"] + "\");")
+	if er != nil {
+
+		panic(er.Error())
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode("deleted")
+}
+
 func getselffeedbackformwithsubmissiondetails(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Gets params
@@ -840,7 +890,7 @@ func getselffeedbackformwithsubmissiondetails(w http.ResponseWriter, r *http.Req
 	fa.Close()
 
 	ev.EvaluationId, err = strconv.Atoi(params["competencyevaluationid"])
-if err != nil {
+	if err != nil {
 
 		panic(err.Error())
 
@@ -1658,7 +1708,7 @@ func getfeedbackformwithsubmissiondetails(w http.ResponseWriter, r *http.Request
 	fa.Close()
 
 	ev.EvaluationId, err = strconv.Atoi(params["competencyevaluationid"])
-if err != nil {
+	if err != nil {
 
 		panic(err.Error())
 
@@ -1958,7 +2008,7 @@ func getfeedbackform(w http.ResponseWriter, r *http.Request) {
 	fa.Close()
 
 	ev.EvaluationId, err = strconv.Atoi(params["competencyevaluationid"])
-if err != nil {
+	if err != nil {
 
 		panic(err.Error())
 
