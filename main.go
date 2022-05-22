@@ -39,8 +39,6 @@ func main() {
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}", getcompetencyevaluations).Methods("GET")
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum", addroweval).Methods("POST")
 	r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/competencyevaluationid/{competencyevaluationid}", getfeedbackform).Methods("GET")
-	// r.HandleFunc("/competencyevaluations/competencyid/{competencyid}/studentid/{studentid}/opnum/{opnum}/femail/{facultyemail}", createarowincompetencyevaluationsandsendform).Methods("GET")
-	// r.HandleFunc("/competencyevaluationsdetails/competencyid/{competencyid}/studentid/{studentid}", evaluationformdetails).Methods("GET")
 
 	r.HandleFunc("/competencyevaluations/competencyevaluationid/{competencyevaluationid}", postform).Methods("POST")
 	r.HandleFunc("/competencyevaluations/facultyview/competencyid/{competencyid}/competencyevaluationid/{competencyevaluationid}", getfeedbackformwithsubmissiondetails).Methods("GET")
@@ -81,15 +79,62 @@ func main() {
 	r.HandleFunc("/admin/speciality/update/{newspecialityname}/{specialityid}", updatespeciality).Methods("PUT")
 	r.HandleFunc("/admin/speciality/competency/add/{specialityname}", createcompetency).Methods("POST")
 
-	
 	r.HandleFunc("/admin/speciality/competency/getcompetency/{competencyid}", getcompetency).Methods("GET")
-    r.HandleFunc("/admin/speciality/competency/update", updatecompetency).Methods("PUT")
+	r.HandleFunc("/admin/speciality/competency/update", updatecompetency).Methods("PUT")
+	r.HandleFunc("/admin/speciality/competency/delete/{competencyid}", deletecompetency).Methods("DELETE")
 	r.HandleFunc("/profile/update/email/{email}", updateprofile).Methods("PUT")
-		
+	r.HandleFunc("/login/email/{email}/updatepassword", updatepassword).Methods("PUT")
 	log.Fatal(http.ListenAndServe(":"+port, r))
 
 }
+func updatepassword(w http.ResponseWriter, r *http.Request) {
 
+	w.Header().Set("Content-Type", "application/json")
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	params := mux.Vars(r)
+	defer db.Close()
+
+	type Details struct {
+		Pass string `json:"password"`
+	}
+	var detail Details
+	erro := json.NewDecoder(r.Body).Decode(&detail)
+	if erro != nil {
+		panic(erro.Error())
+	}
+
+	de, er := db.Query("update person set password=\"" + detail.Pass + "\" where email=\"" + params["email"] + "\";")
+	if er != nil {
+
+		panic(er.Error())
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode("updated")
+}
+
+func deletecompetency(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
+	if err != nil {
+		panic(err.Error())
+	}
+	params := mux.Vars(r)
+	defer db.Close()
+
+	de, er := db.Query("CALL `deletecompetency`(\"" + params["competencyid"] + "\");")
+	if er != nil {
+
+		panic(er.Error())
+	}
+	de.Close()
+
+	json.NewEncoder(w).Encode("deleted")
+}
 
 func updateprofile(w http.ResponseWriter, r *http.Request) {
 
@@ -101,7 +146,7 @@ func updateprofile(w http.ResponseWriter, r *http.Request) {
 		F_name string `json:"firstname"`
 		L_name string `json:"lastname"`
 		Ph     string `json:"phonenum"`
-		Role string `json:"role"`
+		Role   string `json:"role"`
 	}
 	db, err := sql.Open("mysql", "b43dbfed48dc1d:395f6a59@tcp(us-cdbr-east-05.cleardb.net)/heroku_ae8d9f2c5bc1ed0")
 	if err != nil {
@@ -116,7 +161,7 @@ func updateprofile(w http.ResponseWriter, r *http.Request) {
 		panic(erro.Error())
 	}
 
-	a := "call `updateprofile`(\"" + params["email"] + "\",\"" + detail.F_name + "\",\"" + detail.L_name + "\",\"" + detail.Ph + "\",\"" + detail.St_id+ "\",\""  + detail.Role+"\");"
+	a := "call `updateprofile`(\"" + params["email"] + "\",\"" + detail.F_name + "\",\"" + detail.L_name + "\",\"" + detail.Ph + "\",\"" + detail.St_id + "\",\"" + detail.Role + "\");"
 	fd, er := db.Query(a)
 	if er != nil {
 
@@ -134,19 +179,19 @@ func updatecompetency(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err.Error())
 	}
-	
+
 	defer db.Close()
 	type Criteria struct {
-		Criteriaid int `json:"criteriaid"`
+		Criteriaid int    `json:"criteriaid"`
 		CriteriaQs string `json:"criteriaqs"`
 		Option0    string `json:"option0"`
 		Option1    string `json:"option1"`
 		Option2    string `json:"option2"`
 	}
 	type Competency struct {
-		Competencyid int `json:"competencyid"`
-		CompName string      `json:"competencyname"`
-		CriD     []*Criteria `json:"criteriadetails"`
+		Competencyid int         `json:"competencyid"`
+		CompName     string      `json:"competencyname"`
+		CriD         []*Criteria `json:"criteriadetails"`
 	}
 
 	var comp Competency
@@ -187,14 +232,14 @@ func getcompetency(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	type Criteria struct {
-		CriteriaId int    `json:"criteiaid"`
+		CriteriaId int    `json:"criteriaid"`
 		CriteriaQs string `json:"criteriaqs"`
 		Option0    string `json:"option0"`
 		Option1    string `json:"option1"`
 		Option2    string `json:"option2"`
 	}
 	type CriteriaOptions struct {
-		CriteriaId int    `json:"criteiaid"`
+		CriteriaId int    `json:"criteriaid"`
 		Option     string `json:"option"`
 		OptVal     int
 	}
@@ -707,7 +752,7 @@ func addbulkFaculty(w http.ResponseWriter, r *http.Request) {
 func getfaculty(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	type Faculty struct {
 		Person_id  int    `json:"personid"`
 		First_name string `json:"firstname"`
@@ -746,8 +791,7 @@ func getfaculty(w http.ResponseWriter, r *http.Request) {
 		sts = append(sts, st)
 	}
 	de.Close()
-	
-	
+
 	json.NewEncoder(w).Encode(sts)
 
 }
@@ -926,7 +970,7 @@ func getstudents(w http.ResponseWriter, r *http.Request) {
 	for de.Next() {
 		st := new(Studentdetails)
 
-		err := de.Scan(&st.P_id,&st.Firstname, &st.Lastname, &st.Password, &st.Phone, &st.Email, &st.Student_id)
+		err := de.Scan(&st.P_id, &st.Firstname, &st.Lastname, &st.Password, &st.Phone, &st.Email, &st.Student_id)
 
 		if err != nil {
 			panic(err)
@@ -987,7 +1031,7 @@ func updatebatch(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	defer db.Close()
 
-	de, er := db.Query("UPDATE `heroku_ae8d9f2c5bc1ed0`.`batch` SET `Batch` =\""+params["newbatchname"]+"\"WHERE `Batch_id` =\""+params["batchid"]+"\";");
+	de, er := db.Query("UPDATE `heroku_ae8d9f2c5bc1ed0`.`batch` SET `Batch` =\"" + params["newbatchname"] + "\"WHERE `Batch_id` =\"" + params["batchid"] + "\";")
 	if er != nil {
 
 		panic(er.Error())
@@ -1006,7 +1050,7 @@ func addbatch(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	defer db.Close()
 
-	de, er := db.Query("INSERT INTO `batch` (`Batch`) VALUES (\""+params["batchname"]+"\");")
+	de, er := db.Query("INSERT INTO `batch` (`Batch`) VALUES (\"" + params["batchname"] + "\");")
 	if er != nil {
 
 		panic(er.Error())
@@ -1028,6 +1072,8 @@ func getstudenttodoreference(w http.ResponseWriter, r *http.Request) {
 		Evaluation_type         string `json:"evaluationtype"`
 		Criteria_id             int    `json:"criteriaid"`
 		Criteria_qs             string `json:"criteriaqs"`
+		Datetime                string `json:"datetime"`
+		Speciality_Name         string `json:"specialityname"`
 	}
 	sts := make([]*Facultyreference, 0)
 
@@ -1047,12 +1093,22 @@ func getstudenttodoreference(w http.ResponseWriter, r *http.Request) {
 
 	for de.Next() {
 		st := new(Facultyreference)
-		err := de.Scan(&st.Reference_matter, &st.Evaluation_type, &st.Criteria_id, &st.Criteria_qs, &st.Competency_Name, &st.CompetencyEvaluation_id, &st.Name)
+		d := ""
+		t := ""
+		err := de.Scan(&st.Reference_matter, &st.Evaluation_type, &st.Criteria_id, &st.Criteria_qs, &st.Competency_Name, &st.CompetencyEvaluation_id, &st.Name, &d, &t, &st.Speciality_Name)
 
 		if err != nil {
 			panic(err)
 
 		}
+		//gs:=d + " " + t
+
+		//st.Datetime,err =time.Parse("18-05-2022 01:14:36",gs);
+		/*if err!=nil{
+				panic(err)
+		}
+		*/
+		st.Datetime = d + " " + t
 		sts = append(sts, st)
 	}
 	de.Close()
@@ -2589,7 +2645,7 @@ func getprofile(w http.ResponseWriter, r *http.Request) {
 		}
 		if person.Role == "faculty" {
 
-			row, err := db.Query("select f.faculty_id from person p,faculty f where p.email=\"" + params["email"] + "\" and f.person_id=p.person_id;")
+			row, err := db.Query("select f.faculty_id,f.speciality from person p,faculty f where p.email=\"" + params["email"] + "\" and f.person_id=p.person_id;")
 
 			if err != nil {
 
@@ -2599,7 +2655,7 @@ func getprofile(w http.ResponseWriter, r *http.Request) {
 
 			for row.Next() {
 
-				err := row.Scan(&person.Regno)
+				err := row.Scan(&person.Regno, &person.Batch)
 				if err != nil {
 					panic(err)
 				}
